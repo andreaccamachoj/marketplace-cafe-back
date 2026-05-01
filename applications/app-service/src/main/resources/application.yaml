@@ -1,16 +1,37 @@
 server:
   port: 8080
+
 spring:
   application:
-    name: "marketplacecafe"
+    name: marketplacecafe
   devtools:
     add-properties: false
-  h2:
-    console:
-      enabled: true
-      path: "/h2"
   profiles:
     include: null
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:wcm_db}
+    username: ${DB_USER:wcm}
+    password: ${DB_PASS:wcm_pass}
+    properties:
+      schema: marketplace
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:wcm_db}
+    user: ${DB_USER:wcm}
+    password: ${DB_PASS:wcm_pass}
+    schemas: marketplace
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-key-at-least-256-bits-long-for-hs256}
+    access-token-ttl: 3600
+    refresh-token-ttl: 604800
+
+cors:
+  allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
+
 management:
   endpoints:
     web:
@@ -20,5 +41,8 @@ management:
     health:
       probes:
         enabled: true
-cors:
-  allowed-origins: "http://localhost:4200,http://localhost:8080"
+
+logging:
+  level:
+    co.com.marketplace: DEBUG
+    org.springframework.r2dbc: INFO
