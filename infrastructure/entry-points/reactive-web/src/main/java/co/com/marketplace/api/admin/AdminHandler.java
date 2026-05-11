@@ -17,6 +17,7 @@ import co.com.marketplace.usecase.catalog.ListCategoriesUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -41,6 +42,7 @@ public class AdminHandler {
     private final ListCategoriesUseCase listCategoriesUseCase;
     private final ListAllProductsUseCase listAllProductsUseCase;
     private final ActivateProductUseCase activateProductUseCase;
+    private final TransactionalOperator tx;
 
     record BanRequest(String reason) {}
     record ApproveRequest(String notes) {}
@@ -119,7 +121,8 @@ public class AdminHandler {
     public Mono<ServerResponse> createCategory(ServerRequest request) {
         return request.bodyToMono(CategoryRequest.class)
                 .flatMap(body -> createCategoryUseCase.execute(
-                        body.name(), body.slug(), body.description(), body.parentId(), body.iconEmoji()))
+                        body.name(), body.slug(), body.description(), body.parentId(), body.iconEmoji())
+                        .as(tx::transactional))
                 .flatMap(cat -> ServerResponse.status(HttpStatus.CREATED).bodyValue(cat));
     }
 

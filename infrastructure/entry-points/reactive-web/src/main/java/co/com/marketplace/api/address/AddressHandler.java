@@ -8,6 +8,7 @@ import co.com.marketplace.usecase.address.UpdateAddressUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -23,6 +24,7 @@ public class AddressHandler {
     private final UpdateAddressUseCase updateAddressUseCase;
     private final DeleteAddressUseCase deleteAddressUseCase;
     private final SetDefaultAddressUseCase setDefaultAddressUseCase;
+    private final TransactionalOperator tx;
 
     record AddressRequest(String label, String line1, String line2, String city,
                           String department, String zipCode, boolean isDefault) {}
@@ -40,7 +42,8 @@ public class AddressHandler {
                         .flatMap(body -> createAddressUseCase.execute(uid,
                                 new CreateAddressUseCase.Command(
                                         body.label(), body.line1(), body.line2(),
-                                        body.city(), body.department(), body.zipCode(), body.isDefault()))))
+                                        body.city(), body.department(), body.zipCode(), body.isDefault()))
+                                .as(tx::transactional)))
                 .flatMap(addr -> ServerResponse.status(HttpStatus.CREATED).bodyValue(addr));
     }
 

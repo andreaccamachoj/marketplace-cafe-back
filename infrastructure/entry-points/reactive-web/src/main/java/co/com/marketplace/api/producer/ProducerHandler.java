@@ -21,6 +21,7 @@ import co.com.marketplace.usecase.reviews.ListProducerReviewsUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -48,6 +49,7 @@ public class ProducerHandler {
     private final AddFarmCertificationUseCase addFarmCertificationUseCase;
     private final GetFarmCertificationsUseCase getFarmCertificationsUseCase;
     private final RemoveFarmCertificationUseCase removeFarmCertificationUseCase;
+    private final TransactionalOperator tx;
 
     record CreateProductRequest(UUID categoryId, String name, String description,
                                 BigDecimal price, String unit, String region, String emoji) {}
@@ -76,7 +78,8 @@ public class ProducerHandler {
                 .flatMap(uid -> request.bodyToMono(CreateProductRequest.class)
                         .flatMap(body -> createProductUseCase.execute(
                                 new CreateProductUseCase.Command(uid, body.categoryId(), body.name(),
-                                        body.description(), body.price(), body.unit(), body.region(), body.emoji()))))
+                                        body.description(), body.price(), body.unit(), body.region(), body.emoji()))
+                                .as(tx::transactional)))
                 .flatMap(product -> ServerResponse.status(HttpStatus.CREATED).bodyValue(product));
     }
 
@@ -93,7 +96,8 @@ public class ProducerHandler {
     public Mono<ServerResponse> archiveProduct(ServerRequest request) {
         UUID productId = UUID.fromString(request.pathVariable("id"));
         return userId(request)
-                .flatMap(uid -> archiveProductUseCase.execute(productId, uid))
+                .flatMap(uid -> archiveProductUseCase.execute(productId, uid)
+                        .as(tx::transactional))
                 .then(ServerResponse.noContent().build());
     }
 
@@ -120,7 +124,8 @@ public class ProducerHandler {
         UUID orderId = UUID.fromString(request.pathVariable("id"));
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(ConfirmPaymentRequest.class)
-                        .flatMap(body -> confirmOrderPaymentUseCase.execute(orderId, uid, body.verified(), body.note())))
+                        .flatMap(body -> confirmOrderPaymentUseCase.execute(orderId, uid, body.verified(), body.note())
+                                .as(tx::transactional)))
                 .flatMap(payment -> ServerResponse.ok().bodyValue(payment));
     }
 
@@ -163,7 +168,8 @@ public class ProducerHandler {
 
     public Mono<ServerResponse> adjustInventory(ServerRequest request) {
         return request.bodyToMono(InventoryAdjustRequest.class)
-                .flatMap(body -> adjustInventoryUseCase.execute(body.productId(), body.delta()))
+                .flatMap(body -> adjustInventoryUseCase.execute(body.productId(), body.delta())
+                        .as(tx::transactional))
                 .flatMap(item -> ServerResponse.ok().bodyValue(item));
     }
 
@@ -182,7 +188,8 @@ public class ProducerHandler {
                                         body.type(), body.name(), body.issuer(),
                                         body.expiryDate() != null
                                                 ? java.time.LocalDate.parse(body.expiryDate())
-                                                : null))))
+                                                : null))
+                                .as(tx::transactional)))
                 .flatMap(cert -> ServerResponse.status(org.springframework.http.HttpStatus.CREATED).bodyValue(cert));
     }
 

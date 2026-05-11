@@ -5,6 +5,7 @@ import co.com.marketplace.usecase.notifications.MarkAllNotificationsReadUseCase;
 import co.com.marketplace.usecase.notifications.MarkNotificationReadUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -18,6 +19,7 @@ public class NotificationHandler {
     private final ListUserNotificationsUseCase listUserNotificationsUseCase;
     private final MarkNotificationReadUseCase markNotificationReadUseCase;
     private final MarkAllNotificationsReadUseCase markAllNotificationsReadUseCase;
+    private final TransactionalOperator tx;
 
     public Mono<ServerResponse> list(ServerRequest request) {
         int page = request.queryParam("page").map(Integer::parseInt).orElse(0);
@@ -36,7 +38,8 @@ public class NotificationHandler {
 
     public Mono<ServerResponse> markAllRead(ServerRequest request) {
         return userId(request)
-                .flatMap(markAllNotificationsReadUseCase::execute)
+                .flatMap(uid -> markAllNotificationsReadUseCase.execute(uid)
+                        .as(tx::transactional))
                 .then(ServerResponse.noContent().build());
     }
 

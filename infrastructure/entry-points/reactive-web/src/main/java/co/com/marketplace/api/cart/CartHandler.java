@@ -12,6 +12,7 @@ import co.com.marketplace.usecase.cart.UpdateCartItemQuantityUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -32,6 +33,7 @@ public class CartHandler {
     private final ApplyCouponUseCase applyCouponUseCase;
     private final RemoveCouponUseCase removeCouponUseCase;
     private final SelectShippingOptionUseCase selectShippingOptionUseCase;
+    private final TransactionalOperator tx;
 
     record AddItemRequest(UUID productId, int quantity, BigDecimal unitPriceSnapshot) {}
     record UpdateQuantityRequest(int quantity) {}
@@ -48,7 +50,8 @@ public class CartHandler {
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(AddItemRequest.class)
                         .flatMap(body -> addCartItemUseCase.execute(uid,
-                                new AddCartItemUseCase.Command(body.productId(), body.quantity(), body.unitPriceSnapshot()))))
+                                new AddCartItemUseCase.Command(body.productId(), body.quantity(), body.unitPriceSnapshot()))
+                                .as(tx::transactional)))
                 .flatMap(cart -> ServerResponse.status(HttpStatus.CREATED).bodyValue(cart));
     }
 
@@ -76,7 +79,8 @@ public class CartHandler {
     public Mono<ServerResponse> applyCoupon(ServerRequest request) {
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(CouponRequest.class)
-                        .flatMap(body -> applyCouponUseCase.execute(uid, body.code())))
+                        .flatMap(body -> applyCouponUseCase.execute(uid, body.code())
+                                .as(tx::transactional)))
                 .flatMap(cart -> ServerResponse.ok().bodyValue(cart));
     }
 

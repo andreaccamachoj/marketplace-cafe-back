@@ -6,6 +6,7 @@ import co.com.marketplace.usecase.favorites.RemoveFavoriteUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -19,6 +20,7 @@ public class FavoritesHandler {
     private final ListFavoritesUseCase listFavoritesUseCase;
     private final AddFavoriteUseCase addFavoriteUseCase;
     private final RemoveFavoriteUseCase removeFavoriteUseCase;
+    private final TransactionalOperator tx;
 
     public Mono<ServerResponse> list(ServerRequest request) {
         return userId(request)
@@ -30,7 +32,8 @@ public class FavoritesHandler {
     public Mono<ServerResponse> add(ServerRequest request) {
         UUID productId = UUID.fromString(request.pathVariable("productId"));
         return userId(request)
-                .flatMap(uid -> addFavoriteUseCase.execute(uid, productId))
+                .flatMap(uid -> addFavoriteUseCase.execute(uid, productId)
+                        .as(tx::transactional))
                 .then(ServerResponse.status(HttpStatus.CREATED).build());
     }
 

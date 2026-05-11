@@ -8,6 +8,7 @@ import co.com.marketplace.usecase.reviews.ReplyReviewUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -22,6 +23,7 @@ public class ReviewHandler {
     private final ReplyReviewUseCase replyReviewUseCase;
     private final ModerateReviewUseCase moderateReviewUseCase;
     private final ReviewGateway reviewGateway;
+    private final TransactionalOperator tx;
 
     record CreateReviewRequest(UUID productId, UUID orderId, short rating, String title, String body) {}
     record ReplyRequest(String body) {}
@@ -32,7 +34,8 @@ public class ReviewHandler {
                 .flatMap(uid -> request.bodyToMono(CreateReviewRequest.class)
                         .flatMap(body -> createReviewUseCase.execute(
                                 new CreateReviewUseCase.Command(body.productId(), body.orderId(), uid,
-                                        body.rating(), body.title(), body.body()))))
+                                        body.rating(), body.title(), body.body()))
+                                .as(tx::transactional)))
                 .flatMap(review -> ServerResponse.status(HttpStatus.CREATED).bodyValue(review));
     }
 
@@ -40,7 +43,8 @@ public class ReviewHandler {
         UUID reviewId = UUID.fromString(request.pathVariable("id"));
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(ReplyRequest.class)
-                        .flatMap(body -> replyReviewUseCase.execute(reviewId, uid, body.body())))
+                        .flatMap(body -> replyReviewUseCase.execute(reviewId, uid, body.body())
+                                .as(tx::transactional)))
                 .flatMap(reply -> ServerResponse.status(HttpStatus.CREATED).bodyValue(reply));
     }
 

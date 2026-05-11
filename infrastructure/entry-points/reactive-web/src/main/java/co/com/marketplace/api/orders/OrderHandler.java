@@ -13,6 +13,7 @@ import co.com.marketplace.usecase.payments.RegisterManualPaymentProofUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -33,6 +34,7 @@ public class OrderHandler {
     private final RegisterManualPaymentProofUseCase registerManualPaymentProofUseCase;
     private final GetOrderPaymentDetailsUseCase getOrderPaymentDetailsUseCase;
     private final ConfirmOrderPaymentUseCase confirmOrderPaymentUseCase;
+    private final TransactionalOperator tx;
 
     record PlaceOrderRequest(UUID addressId, String shippingOptionId, String paymentMethodCode, String notes) {}
     record CancelRequest(String reason) {}
@@ -44,7 +46,8 @@ public class OrderHandler {
                 .flatMap(uid -> request.bodyToMono(PlaceOrderRequest.class)
                         .flatMap(body -> placeOrderUseCase.execute(
                                 new PlaceOrderUseCase.Command(uid, body.addressId(),
-                                        body.shippingOptionId(), body.paymentMethodCode(), body.notes()))))
+                                        body.shippingOptionId(), body.paymentMethodCode(), body.notes()))
+                                .as(tx::transactional)))
                 .flatMap(order -> ServerResponse.status(HttpStatus.CREATED).bodyValue(order));
     }
 
@@ -69,7 +72,8 @@ public class OrderHandler {
         UUID orderId = UUID.fromString(request.pathVariable("id"));
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(CancelRequest.class)
-                        .flatMap(body -> cancelOrderUseCase.execute(orderId, uid, body.reason())))
+                        .flatMap(body -> cancelOrderUseCase.execute(orderId, uid, body.reason())
+                                .as(tx::transactional)))
                 .flatMap(order -> ServerResponse.ok().bodyValue(order));
     }
 
@@ -92,7 +96,8 @@ public class OrderHandler {
                 .flatMap(body -> registerManualPaymentProofUseCase.execute(
                         new RegisterManualPaymentProofUseCase.Command(
                                 orderId, body.paymentMethodCode(), body.amount(),
-                                body.reference(), body.proofUrl())))
+                                body.reference(), body.proofUrl()))
+                        .as(tx::transactional))
                 .flatMap(payment -> ServerResponse.ok().bodyValue(payment));
     }
 

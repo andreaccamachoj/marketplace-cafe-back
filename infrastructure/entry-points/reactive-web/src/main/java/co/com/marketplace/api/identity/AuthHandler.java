@@ -83,13 +83,15 @@ public class AuthHandler {
 
     public Mono<ServerResponse> requestPasswordReset(ServerRequest request) {
         return request.bodyToMono(PasswordResetRequestBody.class)
-                .flatMap(body -> requestPasswordResetUseCase.execute(body.email()))
+                .flatMap(body -> requestPasswordResetUseCase.execute(body.email())
+                        .as(tx::transactional))
                 .then(ServerResponse.accepted().build());
     }
 
     public Mono<ServerResponse> confirmPasswordReset(ServerRequest request) {
         return request.bodyToMono(ConfirmPasswordResetBody.class)
-                .flatMap(body -> confirmPasswordResetUseCase.execute(body.token(), body.newPassword()))
+                .flatMap(body -> confirmPasswordResetUseCase.execute(body.token(), body.newPassword())
+                        .as(tx::transactional))
                 .then(ServerResponse.noContent().build());
     }
 
@@ -110,7 +112,8 @@ public class AuthHandler {
         String ip = request.remoteAddress().map(a -> a.getAddress().getHostAddress()).orElse(null);
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(PrivacyConsentBody.class)
-                        .flatMap(body -> recordPrivacyConsentUseCase.execute(uid, body.policyVersion(), ip)))
+                        .flatMap(body -> recordPrivacyConsentUseCase.execute(uid, body.policyVersion(), ip)
+                                .as(tx::transactional)))
                 .then(ServerResponse.noContent().build());
     }
 
