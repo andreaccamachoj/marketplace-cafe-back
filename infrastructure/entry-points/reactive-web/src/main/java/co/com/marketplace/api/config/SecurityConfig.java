@@ -17,6 +17,8 @@ import org.springframework.security.web.server.authentication.AuthenticationWebF
 import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
 import reactor.core.publisher.Mono;
 
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
 import java.util.List;
 
 @Configuration
@@ -76,8 +78,12 @@ public class SecurityConfig {
             }
             return tokenProvider.validateToken(token)
                     .map(userId -> {
+                        String role = tokenProvider.extractRole(token);
+                        var authorities = role != null
+                                ? List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                                : List.<org.springframework.security.core.GrantedAuthority>of();
                         var auth = new UsernamePasswordAuthenticationToken(
-                                userId.toString(), null, List.of()
+                                userId.toString(), null, authorities
                         );
                         return (org.springframework.security.core.Authentication) auth;
                     });

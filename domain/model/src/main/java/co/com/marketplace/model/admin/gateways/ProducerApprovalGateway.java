@@ -14,4 +14,5 @@ public interface ProducerApprovalGateway {
     Mono<ProducerApproval> update(ProducerApproval approval);
     Flux<ProducerApproval> findByStatus(ProducerStatus status, int page, int size);
     Mono<Long> countByStatus(ProducerStatus status);
+    Flux<ProducerApproval> findAll(int page, int size);
 }

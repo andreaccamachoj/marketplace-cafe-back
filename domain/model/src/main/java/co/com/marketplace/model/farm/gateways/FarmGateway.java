@@ -13,4 +13,5 @@ public interface FarmGateway {
     Mono<Farm> update(Farm farm);
     Mono<FarmCertification> saveCertification(FarmCertification certification);
     Flux<FarmCertification> findCertificationsByFarmId(UUID farmId);
+    Mono<Void> deleteCertification(UUID certificationId);
 }

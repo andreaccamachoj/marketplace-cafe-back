@@ -7,6 +7,8 @@ import co.com.marketplace.model.exception.ForbiddenException;
 import co.com.marketplace.model.exception.NotFoundException;
 import co.com.marketplace.model.exception.UnauthorizedException;
 import co.com.marketplace.model.exception.ValidationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @Order(-2)
 public class GlobalErrorWebExceptionHandler implements WebExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalErrorWebExceptionHandler.class);
 
     private final ObjectMapper objectMapper;
 
@@ -56,6 +60,7 @@ public class GlobalErrorWebExceptionHandler implements WebExceptionHandler {
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
             apiError = ApiError.of("INTERNAL_ERROR", "An unexpected error occurred", path);
+            log.error("Unhandled exception on {} {}", exchange.getRequest().getMethod(), path, ex);
         }
 
         response.setStatusCode(status);

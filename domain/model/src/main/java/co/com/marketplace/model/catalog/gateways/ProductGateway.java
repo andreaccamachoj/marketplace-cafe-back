@@ -23,4 +23,5 @@ public interface ProductGateway {
     Flux<Product> findFeatured(int limit);
     Flux<Product> findByProducerId(UUID producerId, ProductStatus status, int page, int size);
     Mono<Long> countByProducerId(UUID producerId, ProductStatus status);
+    Flux<Product> findAllForAdmin(int page, int size);
 }

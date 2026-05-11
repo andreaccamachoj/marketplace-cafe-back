@@ -16,4 +16,5 @@ public interface ReviewGateway {
     Flux<Review> findByProducerId(UUID producerId, int page, int size);
     Mono<Long> countByProducerId(UUID producerId);
     Mono<Boolean> existsByBuyerAndProduct(UUID buyerId, UUID productId);
+    Flux<Review> findByBuyerId(UUID buyerId, int page, int size);
 }

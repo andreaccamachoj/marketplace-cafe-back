@@ -76,6 +76,7 @@ public class JwtTokenProvider implements TokenProviderGateway {
         return getClaims(token).get("email", String.class);
     }
 
+    @Override
     public String extractRole(String token) {
         return getClaims(token).get("role", String.class);
     }

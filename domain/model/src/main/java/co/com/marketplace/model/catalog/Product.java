@@ -13,7 +13,9 @@ import java.util.UUID;
 public class Product {
     UUID id;
     UUID producerId;
+    String producerName;
     UUID categoryId;
+    String categoryName;
     String name;
     String description;
     BigDecimal price;
@@ -23,6 +25,9 @@ public class Product {
     String region;
     String emoji;
     int soldCount;
+    double rating;
+    int reviewCount;
+    int stock;
     ProductStatus status;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;

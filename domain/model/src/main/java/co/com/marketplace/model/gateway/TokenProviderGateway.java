@@ -13,4 +13,6 @@ public interface TokenProviderGateway {
     Mono<UUID> validateToken(String token);
 
     boolean isTokenValid(String token);
+
+    String extractRole(String token);
 }
