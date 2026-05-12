@@ -52,9 +52,11 @@ public class ProducerHandler {
     private final TransactionalOperator tx;
 
     record CreateProductRequest(UUID categoryId, String name, String description,
-                                BigDecimal price, String unit, String region, String emoji) {}
+                                BigDecimal price, String unit, String region, String emoji, int stock,
+                                String status, java.util.List<String> certifications) {}
     record UpdateProductRequest(String name, String description, BigDecimal price,
-                                String unit, String region, String emoji, UUID categoryId) {}
+                                String unit, String region, String emoji, UUID categoryId, int stock,
+                                String status, java.util.List<String> certifications) {}
     record UpdateOrderStatusRequest(String newStatus, String note) {}
     record ConfirmPaymentRequest(boolean verified, String note) {}
     record FarmRequest(String name, String municipality, String department,
@@ -78,7 +80,7 @@ public class ProducerHandler {
                 .flatMap(uid -> request.bodyToMono(CreateProductRequest.class)
                         .flatMap(body -> createProductUseCase.execute(
                                 new CreateProductUseCase.Command(uid, body.categoryId(), body.name(),
-                                        body.description(), body.price(), body.unit(), body.region(), body.emoji()))
+                                        body.description(), body.price(), body.unit(), body.region(), body.emoji(), body.stock(), body.status(), body.certifications()))
                                 .as(tx::transactional)))
                 .flatMap(product -> ServerResponse.status(HttpStatus.CREATED).bodyValue(product));
     }
@@ -89,7 +91,7 @@ public class ProducerHandler {
                 .flatMap(uid -> request.bodyToMono(UpdateProductRequest.class)
                         .flatMap(body -> updateProductUseCase.execute(productId, uid,
                                 new UpdateProductUseCase.Command(body.name(), body.description(),
-                                        body.price(), body.unit(), body.region(), body.emoji(), body.categoryId()))))
+                                        body.price(), body.unit(), body.region(), body.emoji(), body.categoryId(), body.stock(), body.status(), body.certifications()))))
                 .flatMap(product -> ServerResponse.ok().bodyValue(product));
     }
 
