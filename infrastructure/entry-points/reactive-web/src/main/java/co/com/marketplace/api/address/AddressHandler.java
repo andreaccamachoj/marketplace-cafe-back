@@ -27,7 +27,7 @@ public class AddressHandler {
     private final TransactionalOperator tx;
 
     record AddressRequest(String label, String line1, String line2, String city,
-                          String department, String zipCode, boolean isDefault) {}
+                          String department, String zipCode, Boolean isDefault) {}
 
     public Mono<ServerResponse> list(ServerRequest request) {
         return userId(request)
@@ -42,7 +42,8 @@ public class AddressHandler {
                         .flatMap(body -> createAddressUseCase.execute(uid,
                                 new CreateAddressUseCase.Command(
                                         body.label(), body.line1(), body.line2(),
-                                        body.city(), body.department(), body.zipCode(), body.isDefault()))
+                                        body.city(), body.department(), body.zipCode(),
+                                        Boolean.TRUE.equals(body.isDefault())))
                                 .as(tx::transactional)))
                 .flatMap(addr -> ServerResponse.status(HttpStatus.CREATED).bodyValue(addr));
     }
