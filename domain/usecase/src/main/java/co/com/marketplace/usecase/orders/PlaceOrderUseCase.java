@@ -2,6 +2,7 @@ package co.com.marketplace.usecase.orders;
 
 import co.com.marketplace.model.cart.CartItem;
 import co.com.marketplace.model.cart.gateways.CartGateway;
+import co.com.marketplace.model.catalog.gateways.ProductGateway;
 import co.com.marketplace.model.exception.ValidationException;
 import co.com.marketplace.model.orders.Order;
 import co.com.marketplace.model.orders.OrderItem;
@@ -10,6 +11,7 @@ import co.com.marketplace.model.orders.OrderStatusHistory;
 import co.com.marketplace.model.orders.gateways.OrderGateway;
 import co.com.marketplace.model.orders.gateways.OrderStatusHistoryGateway;
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -23,6 +25,7 @@ public final class PlaceOrderUseCase {
     private final CartGateway cartGateway;
     private final OrderGateway orderGateway;
     private final OrderStatusHistoryGateway orderStatusHistoryGateway;
+    private final ProductGateway productGateway;
 
     public record Command(
             UUID buyerId,
@@ -41,46 +44,57 @@ public final class PlaceOrderUseCase {
                     }
                     int year = OffsetDateTime.now().getYear();
                     return orderGateway.nextYearlySequence(year)
-                            .flatMap(seq -> {
-                                String code = String.format("WCM-%d-%03d", year, seq);
-                                BigDecimal subtotal = items.stream()
-                                        .map(i -> i.getUnitPriceSnapshot()
-                                                .multiply(BigDecimal.valueOf(i.getQuantity())))
-                                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                                List<OrderItem> orderItems = items.stream()
-                                        .map(i -> OrderItem.builder()
-                                                .productId(i.getProductId())
-                                                .productNameSnapshot("")
-                                                .productEmojiSnapshot("")
-                                                .quantity(i.getQuantity())
-                                                .unitPriceSnapshot(i.getUnitPriceSnapshot())
-                                                .subtotal(i.getUnitPriceSnapshot()
-                                                        .multiply(BigDecimal.valueOf(i.getQuantity())))
-                                                .build())
-                                        .toList();
-                                Order order = Order.builder()
-                                        .buyerId(cmd.buyerId())
-                                        .addressId(cmd.addressId())
-                                        .shippingOptionId(cmd.shippingOptionId())
-                                        .couponId(cart.getCouponId())
-                                        .code(code)
-                                        .yearlySequence(seq)
-                                        .year(year)
-                                        .subtotal(subtotal)
-                                        .shippingAmount(BigDecimal.ZERO)
-                                        .discountAmount(BigDecimal.ZERO)
-                                        .totalAmount(subtotal)
-                                        .status(OrderStatus.pending_verification)
-                                        .items(orderItems)
-                                        .createdAt(OffsetDateTime.now())
-                                        .updatedAt(OffsetDateTime.now())
-                                        .build();
-                                return orderGateway.save(order)
-                                        .flatMap(saved -> cartGateway.clearItems(cart.getId())
-                                                .then(saveInitialHistory(saved, cmd.buyerId()))
-                                                .thenReturn(saved));
-                            });
+                            .flatMap(seq -> buildOrderItems(items)
+                                    .flatMap(orderItems -> {
+                                        String code = String.format("WCM-%d-%03d", year, seq);
+                                        BigDecimal subtotal = orderItems.stream()
+                                                .map(OrderItem::getSubtotal)
+                                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                        Order order = Order.builder()
+                                                .buyerId(cmd.buyerId())
+                                                .addressId(cmd.addressId())
+                                                .shippingOptionId(cmd.shippingOptionId())
+                                                .couponId(cart.getCouponId())
+                                                .code(code)
+                                                .yearlySequence(seq)
+                                                .year(year)
+                                                .subtotal(subtotal)
+                                                .shippingAmount(BigDecimal.ZERO)
+                                                .discountAmount(BigDecimal.ZERO)
+                                                .totalAmount(subtotal)
+                                                .status(OrderStatus.pending_verification)
+                                                .items(orderItems)
+                                                .createdAt(OffsetDateTime.now())
+                                                .updatedAt(OffsetDateTime.now())
+                                                .build();
+                                        return orderGateway.save(order)
+                                                .flatMap(saved -> cartGateway.clearItems(cart.getId())
+                                                        .then(saveInitialHistory(saved, cmd.buyerId()))
+                                                        .thenReturn(saved));
+                                    }));
                 });
+    }
+
+    private Mono<List<OrderItem>> buildOrderItems(List<CartItem> cartItems) {
+        return Flux.fromIterable(cartItems)
+                .flatMap(i -> productGateway.findById(i.getProductId())
+                        .map(p -> OrderItem.builder()
+                                .productId(i.getProductId())
+                                .productNameSnapshot(p.getName() != null ? p.getName() : "")
+                                .productEmojiSnapshot(p.getEmoji() != null ? p.getEmoji() : "")
+                                .quantity(i.getQuantity())
+                                .unitPriceSnapshot(i.getUnitPriceSnapshot())
+                                .subtotal(i.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(i.getQuantity())))
+                                .build())
+                        .onErrorReturn(OrderItem.builder()
+                                .productId(i.getProductId())
+                                .productNameSnapshot("")
+                                .productEmojiSnapshot("")
+                                .quantity(i.getQuantity())
+                                .unitPriceSnapshot(i.getUnitPriceSnapshot())
+                                .subtotal(i.getUnitPriceSnapshot().multiply(BigDecimal.valueOf(i.getQuantity())))
+                                .build()))
+                .collectList();
     }
 
     private Mono<Void> saveInitialHistory(Order order, UUID changedBy) {
