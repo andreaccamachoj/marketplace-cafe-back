@@ -46,10 +46,29 @@ public class CartRepositoryAdapter implements CartGateway {
 
     @Override
     public Mono<CartItem> saveItem(CartItem item) {
-        return template.insert(toItemData(item))
+        return db.sql(
+                "INSERT INTO marketplace.cart_items (cart_id, product_id, quantity, unit_price_snapshot, added_at) " +
+                "VALUES (:cartId, :productId, :quantity, :unitPriceSnapshot, :addedAt) " +
+                "ON CONFLICT (cart_id, product_id) DO UPDATE " +
+                "SET quantity = cart_items.quantity + EXCLUDED.quantity, " +
+                "    unit_price_snapshot = EXCLUDED.unit_price_snapshot " +
+                "RETURNING *")
+                .bind("cartId", item.getCartId())
+                .bind("productId", item.getProductId())
+                .bind("quantity", item.getQuantity())
+                .bind("unitPriceSnapshot", item.getUnitPriceSnapshot())
+                .bind("addedAt", item.getAddedAt() != null ? item.getAddedAt() : java.time.OffsetDateTime.now())
+                .map((row, meta) -> CartItemData.builder()
+                        .id(row.get("id", UUID.class))
+                        .cartId(row.get("cart_id", UUID.class))
+                        .productId(row.get("product_id", UUID.class))
+                        .quantity(row.get("quantity", Integer.class))
+                        .unitPriceSnapshot(row.get("unit_price_snapshot", java.math.BigDecimal.class))
+                        .addedAt(row.get("added_at", java.time.OffsetDateTime.class))
+                        .build()).one()
                 .doOnSubscribe(s -> log.debug("[CartRepositoryAdapter#saveItem] DB request: cartId={}", item.getCartId()))
                 .doOnSuccess(r -> log.debug("[CartRepositoryAdapter#saveItem] DB response: result={}", r != null))
-                .doOnError(e -> log.error("[CartRepositoryAdapter#saveItem] DB error: {}", e.getMessage()))
+                .doOnError(e -> log.error("[CartRepositoryAdapter#saveItem] DB error [{}]: {}", e.getClass().getSimpleName(), e.getMessage()))
                 .map(this::toItemDomain);
     }
 
