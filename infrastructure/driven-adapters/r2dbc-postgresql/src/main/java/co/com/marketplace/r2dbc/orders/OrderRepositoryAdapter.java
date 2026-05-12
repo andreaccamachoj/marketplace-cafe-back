@@ -27,14 +27,27 @@ public class OrderRepositoryAdapter implements OrderGateway {
 
     @Override
     public Mono<Order> save(Order order) {
-        return orderRepo.save(toData(order))
+        OrderData data = toData(order);
+        data.setId(null); // force INSERT — let DB generate the UUID
+        return orderRepo.save(data)
                 .doOnSubscribe(s -> log.debug("[OrderRepositoryAdapter#save] DB request: buyerId={}", order.getBuyerId()))
-                .doOnSuccess(r -> log.debug("[OrderRepositoryAdapter#save] DB response: result={}", r != null))
+                .doOnSuccess(r -> log.debug("[OrderRepositoryAdapter#save] DB response: id={}", r != null ? r.getId() : null))
                 .doOnError(e -> log.error("[OrderRepositoryAdapter#save] DB error: {}", e.getMessage()))
                 .flatMap(saved -> {
                     List<OrderItem> items = order.getItems() != null ? order.getItems() : Collections.emptyList();
                     return Flux.fromIterable(items)
-                            .flatMap(item -> itemRepo.save(toItemData(item)))
+                            .flatMap(item -> {
+                                OrderItemData d = OrderItemData.builder()
+                                        .orderId(saved.getId())
+                                        .productId(item.getProductId())
+                                        .productNameSnapshot(item.getProductNameSnapshot())
+                                        .productEmojiSnapshot(item.getProductEmojiSnapshot())
+                                        .quantity(item.getQuantity())
+                                        .unitPriceSnapshot(item.getUnitPriceSnapshot())
+                                        .subtotal(item.getSubtotal())
+                                        .build();
+                                return itemRepo.save(d);
+                            })
                             .collectList()
                             .map(savedItems -> {
                                 List<OrderItem> domainItems = savedItems.stream().map(this::toItemDomain).toList();
@@ -242,16 +255,4 @@ public class OrderRepositoryAdapter implements OrderGateway {
                 .build();
     }
 
-    private OrderItemData toItemData(OrderItem i) {
-        return OrderItemData.builder()
-                .id(i.getId())
-                .orderId(i.getOrderId())
-                .productId(i.getProductId())
-                .productNameSnapshot(i.getProductNameSnapshot())
-                .productEmojiSnapshot(i.getProductEmojiSnapshot())
-                .quantity(i.getQuantity())
-                .unitPriceSnapshot(i.getUnitPriceSnapshot())
-                .subtotal(i.getSubtotal())
-                .build();
-    }
 }

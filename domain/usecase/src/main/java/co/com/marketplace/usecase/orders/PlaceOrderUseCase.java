@@ -10,7 +10,6 @@ import co.com.marketplace.model.orders.OrderStatusHistory;
 import co.com.marketplace.model.orders.gateways.OrderGateway;
 import co.com.marketplace.model.orders.gateways.OrderStatusHistoryGateway;
 import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -48,8 +47,18 @@ public final class PlaceOrderUseCase {
                                         .map(i -> i.getUnitPriceSnapshot()
                                                 .multiply(BigDecimal.valueOf(i.getQuantity())))
                                         .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                List<OrderItem> orderItems = items.stream()
+                                        .map(i -> OrderItem.builder()
+                                                .productId(i.getProductId())
+                                                .productNameSnapshot("")
+                                                .productEmojiSnapshot("")
+                                                .quantity(i.getQuantity())
+                                                .unitPriceSnapshot(i.getUnitPriceSnapshot())
+                                                .subtotal(i.getUnitPriceSnapshot()
+                                                        .multiply(BigDecimal.valueOf(i.getQuantity())))
+                                                .build())
+                                        .toList();
                                 Order order = Order.builder()
-                                        .id(UUID.randomUUID())
                                         .buyerId(cmd.buyerId())
                                         .addressId(cmd.addressId())
                                         .shippingOptionId(cmd.shippingOptionId())
@@ -62,40 +71,20 @@ public final class PlaceOrderUseCase {
                                         .discountAmount(BigDecimal.ZERO)
                                         .totalAmount(subtotal)
                                         .status(OrderStatus.pending_verification)
+                                        .items(orderItems)
                                         .createdAt(OffsetDateTime.now())
                                         .updatedAt(OffsetDateTime.now())
                                         .build();
                                 return orderGateway.save(order)
-                                        .flatMap(saved -> saveOrderItems(saved, items)
-                                                .then(cartGateway.clearItems(cart.getId()))
+                                        .flatMap(saved -> cartGateway.clearItems(cart.getId())
                                                 .then(saveInitialHistory(saved, cmd.buyerId()))
                                                 .thenReturn(saved));
                             });
                 });
     }
 
-    private Mono<Void> saveOrderItems(Order order, List<CartItem> items) {
-        return Flux.fromIterable(items)
-                .flatMap(item -> {
-                    OrderItem orderItem = OrderItem.builder()
-                            .id(UUID.randomUUID())
-                            .orderId(order.getId())
-                            .productId(item.getProductId())
-                            .productNameSnapshot("")
-                            .productEmojiSnapshot("")
-                            .quantity(item.getQuantity())
-                            .unitPriceSnapshot(item.getUnitPriceSnapshot())
-                            .subtotal(item.getUnitPriceSnapshot()
-                                    .multiply(BigDecimal.valueOf(item.getQuantity())))
-                            .build();
-                    return Mono.just(orderItem);
-                })
-                .then();
-    }
-
     private Mono<Void> saveInitialHistory(Order order, UUID changedBy) {
         OrderStatusHistory history = OrderStatusHistory.builder()
-                .id(UUID.randomUUID())
                 .orderId(order.getId())
                 .status(order.getStatus())
                 .changedBy(changedBy)
