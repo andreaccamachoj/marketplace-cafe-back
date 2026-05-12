@@ -39,4 +39,5 @@ public class ProductData {
     @Transient private double rating;
     @Transient private int reviewCount;
     @Transient private int stock;
+    @Transient private String certCodes;
 }

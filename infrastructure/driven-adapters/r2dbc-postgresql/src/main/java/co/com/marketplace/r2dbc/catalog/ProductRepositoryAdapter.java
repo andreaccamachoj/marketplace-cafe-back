@@ -45,7 +45,11 @@ public class ProductRepositoryAdapter implements ProductGateway {
             ", COALESCE((SELECT COUNT(r.id) FROM marketplace.reviews r" +
             "  WHERE r.product_id = p.id AND r.status = 'published'), 0)::int AS review_count" +
             ", COALESCE((SELECT SUM(i.quantity) FROM marketplace.inventory i" +
-            "  WHERE i.product_id = p.id), 0)::int AS stock_qty";
+            "  WHERE i.product_id = p.id), 0)::int AS stock_qty" +
+            ", (SELECT STRING_AGG(c.code, ',' ORDER BY c.code)" +
+            "   FROM marketplace.product_certifications pc" +
+            "   JOIN marketplace.certifications c ON c.id = pc.certification_id" +
+            "   WHERE pc.product_id = p.id) AS cert_codes";
 
     @Override
     public Mono<Product> save(Product product) {
@@ -93,7 +97,8 @@ public class ProductRepositoryAdapter implements ProductGateway {
     public Mono<Product> findById(UUID id) {
         String sql = "SELECT p.*, u.full_name AS producer_name, cat.name AS category_name" + ENRICHED_COLS +
                 " FROM marketplace.products p" +
-                " LEFT JOIN marketplace.users u ON u.id = p.producer_id" +
+                " LEFT JOIN marketplace.producer_profiles pp ON pp.id = p.producer_id" +
+                " LEFT JOIN marketplace.users u ON u.id = pp.user_id" +
                 " LEFT JOIN marketplace.categories cat ON cat.id = p.category_id" +
                 " WHERE p.id = :id";
         return databaseClient.sql(sql).bind("id", id)
@@ -175,7 +180,8 @@ public class ProductRepositoryAdapter implements ProductGateway {
         StringBuilder sql = new StringBuilder(
                 "SELECT DISTINCT p.*, u.full_name AS producer_name, cat.name AS category_name" + ENRICHED_COLS +
                 " FROM marketplace.products p" +
-                " LEFT JOIN marketplace.users u ON u.id = p.producer_id" +
+                " LEFT JOIN marketplace.producer_profiles pp ON pp.id = p.producer_id" +
+                " LEFT JOIN marketplace.users u ON u.id = pp.user_id" +
                 " LEFT JOIN marketplace.categories cat ON cat.id = p.category_id");
         if (certification != null) {
             sql.append(" JOIN marketplace.product_certifications pc ON pc.product_id = p.id");
@@ -255,7 +261,8 @@ public class ProductRepositoryAdapter implements ProductGateway {
     public Flux<Product> findFeatured(int limit) {
         String sql = "SELECT p.*, u.full_name AS producer_name, cat.name AS category_name" + ENRICHED_COLS +
                 " FROM marketplace.products p" +
-                " LEFT JOIN marketplace.users u ON u.id = p.producer_id" +
+                " LEFT JOIN marketplace.producer_profiles pp ON pp.id = p.producer_id" +
+                " LEFT JOIN marketplace.users u ON u.id = pp.user_id" +
                 " LEFT JOIN marketplace.categories cat ON cat.id = p.category_id" +
                 " WHERE p.status = 'active' ORDER BY p.sold_count DESC LIMIT :limit";
         return databaseClient.sql(sql).bind("limit", limit)
@@ -292,7 +299,8 @@ public class ProductRepositoryAdapter implements ProductGateway {
     public Flux<Product> findAllForAdmin(int page, int size) {
         String sql = "SELECT p.*, u.full_name AS producer_name, cat.name AS category_name" + ENRICHED_COLS +
                 " FROM marketplace.products p" +
-                " LEFT JOIN marketplace.users u ON u.id = p.producer_id" +
+                " LEFT JOIN marketplace.producer_profiles pp ON pp.id = p.producer_id" +
+                " LEFT JOIN marketplace.users u ON u.id = pp.user_id" +
                 " LEFT JOIN marketplace.categories cat ON cat.id = p.category_id" +
                 " ORDER BY p.created_at DESC LIMIT :size OFFSET :offset";
         return databaseClient.sql(sql)
@@ -370,11 +378,15 @@ public class ProductRepositoryAdapter implements ProductGateway {
         d.setRating(avgRating != null ? avgRating : 0.0);
         d.setReviewCount(reviewCount != null ? reviewCount : 0);
         d.setStock(stockQty != null ? stockQty : 0);
+        d.setCertCodes(row.get("cert_codes", String.class));
         return d;
     }
 
     static Product toDomainShallow(ProductData d) {
-        return toDomain(d, null, null, null, null, null, null);
+        List<String> codes = (d.getCertCodes() != null && !d.getCertCodes().isBlank())
+                ? List.of(d.getCertCodes().split(","))
+                : List.of();
+        return toDomain(d, null, null, null, null, null, codes);
     }
 
     static Product toDomain(ProductData d,

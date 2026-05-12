@@ -30,11 +30,17 @@ public class FavoriteRepositoryAdapter implements FavoriteGateway {
 
     @Override
     public Mono<Favorite> save(Favorite favorite) {
-        return repo.save(toData(favorite))
+        return db.sql("INSERT INTO marketplace.favorites (id, user_id, product_id, added_at) " +
+                      "VALUES (:id, :userId, :productId, :addedAt)")
+                .bind("id", favorite.getId())
+                .bind("userId", favorite.getUserId())
+                .bind("productId", favorite.getProductId())
+                .bind("addedAt", favorite.getAddedAt())
+                .then()
+                .thenReturn(favorite)
                 .doOnSubscribe(s -> log.debug("[FavoriteRepositoryAdapter#save] DB request: userId={}, productId={}", favorite.getUserId(), favorite.getProductId()))
-                .doOnSuccess(r -> log.debug("[FavoriteRepositoryAdapter#save] DB response: result={}", r != null))
-                .doOnError(e -> log.error("[FavoriteRepositoryAdapter#save] DB error: {}", e.getMessage()))
-                .map(this::toDomain);
+                .doOnSuccess(r -> log.debug("[FavoriteRepositoryAdapter#save] DB response: saved"))
+                .doOnError(e -> log.error("[FavoriteRepositoryAdapter#save] DB error: {} {}", e.getClass().getSimpleName(), e.getMessage()));
     }
 
     @Override
