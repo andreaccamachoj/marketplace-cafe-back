@@ -25,7 +25,6 @@ public final class AddCartItemUseCase {
         return cartGateway.findByUserId(userId)
                 .flatMap(cart -> {
                     CartItem item = CartItem.builder()
-                            .id(UUID.randomUUID())
                             .cartId(cart.getId())
                             .productId(cmd.productId())
                             .quantity(cmd.quantity())

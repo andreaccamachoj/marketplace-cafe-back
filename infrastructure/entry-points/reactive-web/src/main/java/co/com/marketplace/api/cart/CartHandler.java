@@ -51,7 +51,8 @@ public class CartHandler {
                 .flatMap(uid -> request.bodyToMono(AddItemRequest.class)
                         .flatMap(body -> addCartItemUseCase.execute(uid,
                                 new AddCartItemUseCase.Command(body.productId(), body.quantity(), body.unitPriceSnapshot()))
-                                .as(tx::transactional)))
+                                .as(tx::transactional))
+                        .then(getCartWithProductsUseCase.execute(uid)))
                 .flatMap(cart -> ServerResponse.status(HttpStatus.CREATED).bodyValue(cart));
     }
 
@@ -59,14 +60,16 @@ public class CartHandler {
         UUID itemId = UUID.fromString(request.pathVariable("itemId"));
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(UpdateQuantityRequest.class)
-                        .flatMap(body -> updateCartItemQuantityUseCase.execute(uid, itemId, body.quantity())))
+                        .flatMap(body -> updateCartItemQuantityUseCase.execute(uid, itemId, body.quantity())
+                                .then(getCartWithProductsUseCase.execute(uid))))
                 .flatMap(cart -> ServerResponse.ok().bodyValue(cart));
     }
 
     public Mono<ServerResponse> removeItem(ServerRequest request) {
         UUID itemId = UUID.fromString(request.pathVariable("itemId"));
         return userId(request)
-                .flatMap(uid -> removeCartItemUseCase.execute(uid, itemId))
+                .flatMap(uid -> removeCartItemUseCase.execute(uid, itemId)
+                        .then(getCartWithProductsUseCase.execute(uid)))
                 .flatMap(cart -> ServerResponse.ok().bodyValue(cart));
     }
 
@@ -80,20 +83,23 @@ public class CartHandler {
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(CouponRequest.class)
                         .flatMap(body -> applyCouponUseCase.execute(uid, body.code())
-                                .as(tx::transactional)))
+                                .as(tx::transactional))
+                        .then(getCartWithProductsUseCase.execute(uid)))
                 .flatMap(cart -> ServerResponse.ok().bodyValue(cart));
     }
 
     public Mono<ServerResponse> removeCoupon(ServerRequest request) {
         return userId(request)
-                .flatMap(removeCouponUseCase::execute)
+                .flatMap(uid -> removeCouponUseCase.execute(uid)
+                        .then(getCartWithProductsUseCase.execute(uid)))
                 .flatMap(cart -> ServerResponse.ok().bodyValue(cart));
     }
 
     public Mono<ServerResponse> selectShipping(ServerRequest request) {
         return userId(request)
                 .flatMap(uid -> request.bodyToMono(ShippingRequest.class)
-                        .flatMap(body -> selectShippingOptionUseCase.execute(uid, body.shippingOptionId())))
+                        .flatMap(body -> selectShippingOptionUseCase.execute(uid, body.shippingOptionId()))
+                        .then(getCartWithProductsUseCase.execute(uid)))
                 .flatMap(cart -> ServerResponse.ok().bodyValue(cart));
     }
 

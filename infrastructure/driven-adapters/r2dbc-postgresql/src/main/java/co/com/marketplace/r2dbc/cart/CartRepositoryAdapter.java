@@ -4,6 +4,7 @@ import co.com.marketplace.model.cart.*;
 import co.com.marketplace.model.cart.gateways.CartGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -18,6 +19,7 @@ public class CartRepositoryAdapter implements CartGateway {
 
     private final CartReactiveRepository cartRepo;
     private final CartItemReactiveRepository cartItemRepo;
+    private final R2dbcEntityTemplate template;
     private final DatabaseClient db;
 
     @Override
@@ -44,7 +46,7 @@ public class CartRepositoryAdapter implements CartGateway {
 
     @Override
     public Mono<CartItem> saveItem(CartItem item) {
-        return cartItemRepo.save(toItemData(item))
+        return template.insert(toItemData(item))
                 .doOnSubscribe(s -> log.debug("[CartRepositoryAdapter#saveItem] DB request: cartId={}", item.getCartId()))
                 .doOnSuccess(r -> log.debug("[CartRepositoryAdapter#saveItem] DB response: result={}", r != null))
                 .doOnError(e -> log.error("[CartRepositoryAdapter#saveItem] DB error: {}", e.getMessage()))
