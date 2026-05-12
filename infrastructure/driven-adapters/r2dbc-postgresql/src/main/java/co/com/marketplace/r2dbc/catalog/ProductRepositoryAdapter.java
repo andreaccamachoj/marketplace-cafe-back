@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -34,6 +35,7 @@ public class ProductRepositoryAdapter implements ProductGateway {
     private final ProductPresentationReactiveRepository presentationRepository;
     private final ProductFlavorNoteReactiveRepository flavorNoteRepository;
     private final ProductCuppingReactiveRepository cuppingRepository;
+    private final CertificationReactiveRepository certificationRepository;
     private final R2dbcEntityTemplate template;
     private final DatabaseClient databaseClient;
 
@@ -48,32 +50,43 @@ public class ProductRepositoryAdapter implements ProductGateway {
     @Override
     public Mono<Product> save(Product product) {
         ProductData data = toData(product);
-        return repository.save(data)
+        // Bug 1: force INSERT via template.insert() — avoids false UPDATE when UUID is pre-set
+        return template.insert(data)
                 .doOnSubscribe(s -> log.debug("[ProductRepositoryAdapter#save] DB request: producerId={}", product.getProducerId()))
-                .doOnSuccess(r -> log.debug("[ProductRepositoryAdapter#save] DB response: result={}", r != null))
+                .doOnSuccess(r -> log.debug("[ProductRepositoryAdapter#save] DB response: id={}", r.getId()))
                 .doOnError(e -> log.error("[ProductRepositoryAdapter#save] DB error: {}", e.getMessage()))
                 .flatMap(saved -> {
                     UUID pid = saved.getId();
                     List<Mono<?>> ops = new ArrayList<>();
                     if (product.getImages() != null) {
                         product.getImages().forEach(img ->
-                                ops.add(imageRepository.save(imageToData(img, pid))));
+                                ops.add(template.insert(imageToData(img, pid))));
                     }
                     if (product.getPresentations() != null) {
                         product.getPresentations().forEach(p ->
-                                ops.add(presentationRepository.save(presentationToData(p, pid))));
+                                ops.add(template.insert(presentationToData(p, pid))));
                     }
                     if (product.getFlavorNotes() != null) {
                         product.getFlavorNotes().forEach(fn ->
-                                ops.add(flavorNoteRepository.save(flavorNoteToData(fn, pid))));
+                                ops.add(template.insert(flavorNoteToData(fn, pid))));
                     }
                     if (product.getCupping() != null) {
-                        ops.add(cuppingRepository.save(cuppingToData(product.getCupping(), pid)));
+                        ops.add(template.insert(cuppingToData(product.getCupping(), pid)));
+                    }
+                    if (product.getCertificationCodes() != null) {
+                        product.getCertificationCodes().forEach(code ->
+                                ops.add(certificationRepository.findByCode(code)
+                                        .flatMap(cert -> databaseClient.sql(
+                                                "INSERT INTO marketplace.product_certifications (product_id, certification_id) VALUES (:pid, :certId) ON CONFLICT DO NOTHING")
+                                                .bind("pid", pid)
+                                                .bind("certId", cert.getId())
+                                                .fetch().rowsUpdated())));
                     }
                     if (ops.isEmpty()) return Mono.just(saved);
                     return Mono.when(ops).thenReturn(saved);
                 })
-                .map(ProductRepositoryAdapter::toDomainShallow);
+                // Bug 3: return fully hydrated domain entity instead of shallow mapping
+                .flatMap(saved -> findById(saved.getId()));
     }
 
     @Override
@@ -96,22 +109,25 @@ public class ProductRepositoryAdapter implements ProductGateway {
                             .map(ProductRepositoryAdapter::presentationToDomain).collectList();
                     Mono<List<ProductFlavorNote>> flavorNotes = flavorNoteRepository.findByProductId(pid)
                             .map(ProductRepositoryAdapter::flavorNoteToDomain).collectList();
-                    Mono<ProductCupping> cupping = cuppingRepository.findByProductId(pid)
-                            .map(ProductRepositoryAdapter::cuppingToDomain)
-                            .defaultIfEmpty(nullCupping());
+                    // Bug 2: wrap in Optional so Mono.zip never receives an empty Mono or null
+                    Mono<Optional<ProductCupping>> cupping = cuppingRepository.findByProductId(pid)
+                            .map(d -> Optional.of(cuppingToDomain(d)))
+                            .defaultIfEmpty(Optional.empty());
                     Mono<List<Integer>> roastIds = databaseClient
                             .sql("SELECT roast_level_id FROM marketplace.product_roast_levels WHERE product_id = :pid")
                             .bind("pid", pid)
                             .map((row, meta) -> row.get("roast_level_id", Integer.class))
                             .all().collectList();
-                    Mono<List<Integer>> certIds = databaseClient
-                            .sql("SELECT certification_id FROM marketplace.product_certifications WHERE product_id = :pid")
+                    Mono<List<String>> certCodes = databaseClient
+                            .sql("SELECT c.code FROM marketplace.product_certifications pc" +
+                                 " JOIN marketplace.certifications c ON c.id = pc.certification_id" +
+                                 " WHERE pc.product_id = :pid")
                             .bind("pid", pid)
-                            .map((row, meta) -> row.get("certification_id", Integer.class))
+                            .map((row, meta) -> row.get("code", String.class))
                             .all().collectList();
-                    return Mono.zip(images, presentations, flavorNotes, cupping, roastIds, certIds)
+                    return Mono.zip(images, presentations, flavorNotes, cupping, roastIds, certCodes)
                             .map(t -> toDomain(data, t.getT1(), t.getT2(), t.getT3(),
-                                    t.getT4(), t.getT5(), t.getT6()));
+                                    t.getT4().orElse(null), t.getT5(), t.getT6()));
                 });
     }
 
@@ -134,6 +150,8 @@ public class ProductRepositoryAdapter implements ProductGateway {
         ).doOnSubscribe(s -> log.debug("[ProductRepositoryAdapter#update] DB request: id={}", product.getId()))
                 .doOnSuccess(r -> log.debug("[ProductRepositoryAdapter#update] DB response: result={}", r))
                 .doOnError(e -> log.error("[ProductRepositoryAdapter#update] DB error: {}", e.getMessage()))
+                .then(replaceCertifications(product.getId(), product.getCertificationCodes()))
+                .then(upsertInventory(product.getId(), product.getStock()))
                 .then(findById(product.getId()));
     }
 
@@ -295,6 +313,33 @@ public class ProductRepositoryAdapter implements ProductGateway {
                 .doOnError(e -> log.error("[ProductRepositoryAdapter#countByProducerId] DB error: {}", e.getMessage()));
     }
 
+    private Mono<Void> replaceCertifications(UUID productId, List<String> codes) {
+        Mono<Long> delete = databaseClient.sql(
+                "DELETE FROM marketplace.product_certifications WHERE product_id = :pid")
+                .bind("pid", productId)
+                .fetch().rowsUpdated();
+        if (codes == null || codes.isEmpty()) return delete.then();
+        return delete.thenMany(
+                Flux.fromIterable(codes).flatMap(code ->
+                        certificationRepository.findByCode(code)
+                                .flatMap(cert -> databaseClient.sql(
+                                        "INSERT INTO marketplace.product_certifications (product_id, certification_id) VALUES (:pid, :certId)")
+                                        .bind("pid", productId)
+                                        .bind("certId", cert.getId())
+                                        .fetch().rowsUpdated())))
+                .then();
+    }
+
+    private Mono<Void> upsertInventory(UUID productId, int quantity) {
+        return databaseClient.sql(
+                "INSERT INTO marketplace.inventory (product_id, quantity, updated_at) " +
+                "VALUES (:productId, :quantity, NOW()) " +
+                "ON CONFLICT (product_id) DO UPDATE SET quantity = EXCLUDED.quantity, updated_at = NOW()")
+                .bind("productId", productId)
+                .bind("quantity", quantity)
+                .fetch().rowsUpdated().then();
+    }
+
     private static ProductData mapRow(io.r2dbc.spi.Row row) {
         return ProductData.builder()
                 .id(row.get("id", UUID.class))
@@ -338,7 +383,7 @@ public class ProductRepositoryAdapter implements ProductGateway {
                              List<ProductFlavorNote> flavorNotes,
                              ProductCupping cupping,
                              List<Integer> roastLevelIds,
-                             List<Integer> certificationIds) {
+                             List<String> certificationCodes) {
         return Product.builder()
                 .id(d.getId())
                 .producerId(d.getProducerId())
@@ -365,7 +410,7 @@ public class ProductRepositoryAdapter implements ProductGateway {
                 .flavorNotes(flavorNotes)
                 .cupping(cupping)
                 .roastLevelIds(roastLevelIds)
-                .certificationIds(certificationIds)
+                .certificationCodes(certificationCodes)
                 .build();
     }
 
@@ -469,9 +514,5 @@ public class ProductRepositoryAdapter implements ProductGateway {
                 .finish(c.getFinish())
                 .acidity(c.getAcidity())
                 .build();
-    }
-
-    private static ProductCupping nullCupping() {
-        return null;
     }
 }

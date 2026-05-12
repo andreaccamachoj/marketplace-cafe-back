@@ -35,6 +35,6 @@ public class Product {
     List<ProductPresentation> presentations;
     List<ProductFlavorNote> flavorNotes;
     List<Integer> roastLevelIds;
-    List<Integer> certificationIds;
+    List<String> certificationCodes;
     ProductCupping cupping;
 }

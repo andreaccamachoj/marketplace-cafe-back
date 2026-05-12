@@ -12,6 +12,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -29,7 +30,10 @@ public final class CreateProductUseCase {
             BigDecimal price,
             String unit,
             String region,
-            String emoji
+            String emoji,
+            int stock,
+            String status,
+            List<String> certificationCodes
     ) {}
 
     public Mono<Product> execute(Command cmd) {
@@ -47,7 +51,8 @@ public final class CreateProductUseCase {
                             .unit(cmd.unit())
                             .region(cmd.region())
                             .emoji(cmd.emoji())
-                            .status(ProductStatus.draft)
+                            .status(cmd.status() != null ? ProductStatus.valueOf(cmd.status()) : ProductStatus.draft)
+                            .certificationCodes(cmd.certificationCodes())
                             .soldCount(0)
                             .createdAt(OffsetDateTime.now())
                             .updatedAt(OffsetDateTime.now())
@@ -57,7 +62,7 @@ public final class CreateProductUseCase {
                                 InventoryItem item = InventoryItem.builder()
                                         .id(UUID.randomUUID())
                                         .productId(saved.getId())
-                                        .quantity(0)
+                                        .quantity(cmd.stock())
                                         .updatedAt(OffsetDateTime.now())
                                         .build();
                                 return inventoryGateway.save(item).thenReturn(saved);

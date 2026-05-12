@@ -1,6 +1,7 @@
 package co.com.marketplace.usecase.catalog;
 
 import co.com.marketplace.model.catalog.Product;
+import co.com.marketplace.model.catalog.ProductStatus;
 import co.com.marketplace.model.catalog.gateways.ProductGateway;
 import co.com.marketplace.model.exception.ForbiddenException;
 import co.com.marketplace.model.exception.NotFoundException;
@@ -10,6 +11,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -25,7 +27,10 @@ public final class UpdateProductUseCase {
             String unit,
             String region,
             String emoji,
-            UUID categoryId
+            UUID categoryId,
+            int stock,
+            String status,
+            List<String> certificationCodes
     ) {}
 
     public Mono<Product> execute(UUID productId, UUID userId, Command cmd) {
@@ -46,6 +51,9 @@ public final class UpdateProductUseCase {
                                     .region(cmd.region())
                                     .emoji(cmd.emoji())
                                     .categoryId(cmd.categoryId() != null ? cmd.categoryId() : existing.getCategoryId())
+                                    .stock(cmd.stock())
+                                    .status(cmd.status() != null ? ProductStatus.valueOf(cmd.status()) : existing.getStatus())
+                                    .certificationCodes(cmd.certificationCodes())
                                     .updatedAt(OffsetDateTime.now())
                                     .build();
                             return productGateway.update(updated);
