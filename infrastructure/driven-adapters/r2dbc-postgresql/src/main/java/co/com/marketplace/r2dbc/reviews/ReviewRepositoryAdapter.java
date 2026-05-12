@@ -24,10 +24,49 @@ public class ReviewRepositoryAdapter implements ReviewGateway {
 
     @Override
     public Mono<Review> save(Review review) {
-        return repo.save(toData(review))
+        UUID id = review.getId() != null ? review.getId() : java.util.UUID.randomUUID();
+        var spec = db.sql(
+                "INSERT INTO marketplace.reviews " +
+                "(id, product_id, buyer_id, order_id, rating, title, body, status, " +
+                " is_verified_purchase, helpful_count, created_at, updated_at) " +
+                "VALUES (:id, :productId, :buyerId, :orderId, :rating, :title, :body, " +
+                " CAST(:status AS marketplace.review_status), :isVerifiedPurchase, :helpfulCount, NOW(), NOW()) " +
+                "RETURNING *")
+                .bind("id", id)
+                .bind("productId", review.getProductId())
+                .bind("buyerId", review.getBuyerId())
+                .bind("rating", review.getRating())
+                .bind("status", review.getStatus().name())
+                .bind("isVerifiedPurchase", review.isVerifiedPurchase())
+                .bind("helpfulCount", review.getHelpfulCount());
+        spec = review.getOrderId() != null
+                ? spec.bind("orderId", review.getOrderId())
+                : spec.bindNull("orderId", UUID.class);
+        spec = review.getTitle() != null
+                ? spec.bind("title", review.getTitle())
+                : spec.bindNull("title", String.class);
+        spec = review.getBody() != null
+                ? spec.bind("body", review.getBody())
+                : spec.bindNull("body", String.class);
+        return spec
+                .map((row, meta) -> ReviewData.builder()
+                        .id(row.get("id", UUID.class))
+                        .productId(row.get("product_id", UUID.class))
+                        .buyerId(row.get("buyer_id", UUID.class))
+                        .orderId(row.get("order_id", UUID.class))
+                        .rating(row.get("rating", Short.class))
+                        .title(row.get("title", String.class))
+                        .body(row.get("body", String.class))
+                        .status(ReviewStatusType.valueOf(row.get("status", String.class)))
+                        .isVerifiedPurchase(Boolean.TRUE.equals(row.get("is_verified_purchase", Boolean.class)))
+                        .helpfulCount(row.get("helpful_count", Integer.class))
+                        .createdAt(row.get("created_at", OffsetDateTime.class))
+                        .updatedAt(row.get("updated_at", OffsetDateTime.class))
+                        .build())
+                .one()
                 .doOnSubscribe(s -> log.debug("[ReviewRepositoryAdapter#save] DB request: productId={}, buyerId={}", review.getProductId(), review.getBuyerId()))
-                .doOnSuccess(r -> log.debug("[ReviewRepositoryAdapter#save] DB response: result={}", r != null))
-                .doOnError(e -> log.error("[ReviewRepositoryAdapter#save] DB error: {}", e.getMessage()))
+                .doOnSuccess(r -> log.debug("[ReviewRepositoryAdapter#save] DB response: id={}", r != null ? r.getId() : null))
+                .doOnError(e -> log.error("[ReviewRepositoryAdapter#save] DB error: {} {}", e.getClass().getSimpleName(), e.getMessage()))
                 .map(this::toDomain);
     }
 
