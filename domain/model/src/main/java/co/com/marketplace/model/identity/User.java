@@ -18,4 +18,5 @@ public class User {
     boolean privacyConsent;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;
+    String role;
 }

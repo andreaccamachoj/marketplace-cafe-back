@@ -104,51 +104,49 @@ public class UserRepositoryAdapter implements UserGateway {
     @Override
     public Flux<User> findAll(String roleFilter, UserStatus statusFilter, String search, int page, int size) {
         StringBuilder sql = new StringBuilder(
-                "SELECT DISTINCT u.* FROM marketplace.users u");
-        if (roleFilter != null && !roleFilter.isBlank()) {
-            sql.append(" JOIN marketplace.user_roles ur ON u.id = ur.user_id")
-               .append(" JOIN marketplace.roles r ON r.id = ur.role_id");
-        }
+                "SELECT DISTINCT u.*, r.name AS role_name FROM marketplace.users u" +
+                " LEFT JOIN marketplace.user_roles ur ON u.id = ur.user_id" +
+                " LEFT JOIN marketplace.roles r ON r.id = ur.role_id");
         sql.append(" WHERE 1=1");
         if (roleFilter != null && !roleFilter.isBlank()) {
             sql.append(" AND r.name = :roleFilter");
         }
         if (statusFilter != null) {
-            sql.append(" AND u.status = :statusFilter");
+            sql.append(" AND u.status = CAST(:statusFilter AS marketplace.user_status)");
         }
         if (search != null && !search.isBlank()) {
             sql.append(" AND (u.email ILIKE :search OR u.full_name ILIKE :search)");
         }
-        sql.append(" LIMIT :size OFFSET :offset");
+        sql.append(" ORDER BY u.created_at DESC LIMIT :size OFFSET :offset");
 
         DatabaseClient.GenericExecuteSpec spec = databaseClient.sql(sql.toString());
         if (roleFilter != null && !roleFilter.isBlank()) {
             spec = spec.bind("roleFilter", roleFilter);
         }
         if (statusFilter != null) {
-            spec = spec.bind("statusFilter", UserStatusType.valueOf(statusFilter.name()));
+            spec = spec.bind("statusFilter", statusFilter.name());
         }
         if (search != null && !search.isBlank()) {
             spec = spec.bind("search", "%" + search + "%");
         }
         spec = spec.bind("size", size).bind("offset", (long) page * size);
 
-        return spec.map((row, meta) -> UserData.builder()
+        return spec.map((row, meta) -> User.builder()
                         .id(row.get("id", UUID.class))
                         .email(row.get("email", String.class))
-                        .passwordHash(row.get("password_hash", String.class))
+                        .hashedPassword(row.get("password_hash", String.class))
                         .fullName(row.get("full_name", String.class))
                         .phone(row.get("phone", String.class))
-                        .status(row.get("status", UserStatusType.class))
+                        .status(UserStatus.valueOf(UserStatusType.valueOf(row.get("status", String.class)).name()))
                         .privacyConsent(Boolean.TRUE.equals(row.get("privacy_consent", Boolean.class)))
                         .createdAt(row.get("created_at", java.time.OffsetDateTime.class))
                         .updatedAt(row.get("updated_at", java.time.OffsetDateTime.class))
+                        .role(row.get("role_name", String.class))
                         .build())
                 .all()
                 .doOnSubscribe(s -> log.debug("[UserRepositoryAdapter#findAll] DB request: page={}, size={}, roleFilter={}", page, size, roleFilter))
                 .doOnComplete(() -> log.debug("[UserRepositoryAdapter#findAll] DB response: complete"))
-                .doOnError(e -> log.error("[UserRepositoryAdapter#findAll] DB error: {}", e.getMessage()))
-                .map(UserRepositoryAdapter::toDomain);
+                .doOnError(e -> log.error("[UserRepositoryAdapter#findAll] DB error: {}", e.getMessage()));
     }
 
     @Override
