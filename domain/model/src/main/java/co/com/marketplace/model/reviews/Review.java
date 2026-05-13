@@ -21,4 +21,10 @@ public class Review {
     int helpfulCount;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;
+    String buyerName;
+    String buyerInitials;
+    String productName;
+    String productEmoji;
+    String producerReply;
+    OffsetDateTime producerReplyDate;
 }
