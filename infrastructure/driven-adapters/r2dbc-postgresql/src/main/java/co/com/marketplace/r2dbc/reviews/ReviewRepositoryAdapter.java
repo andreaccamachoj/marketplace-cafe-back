@@ -123,11 +123,51 @@ public class ReviewRepositoryAdapter implements ReviewGateway {
 
     @Override
     public Flux<Review> findByProductId(UUID productId, int page, int size) {
-        return repo.findByProductId(productId, size, (long) page * size)
-                .doOnSubscribe(s -> log.debug("[ReviewRepositoryAdapter#findByProductId] DB request: productId={}, page={}, size={}", productId, page, size))
+        return db.sql(
+                "SELECT r.id, r.product_id, r.buyer_id, r.order_id, r.rating, r.title, r.body, " +
+                "       r.status, r.is_verified_purchase, r.helpful_count, r.created_at, r.updated_at, " +
+                "       u.full_name AS buyer_name, " +
+                "       rr.body AS producer_reply, rr.created_at AS producer_reply_date " +
+                "FROM marketplace.reviews r " +
+                "JOIN marketplace.users u ON u.id = r.buyer_id " +
+                "LEFT JOIN marketplace.review_replies rr ON rr.review_id = r.id " +
+                "WHERE r.product_id = :productId " +
+                "ORDER BY r.created_at DESC LIMIT :size OFFSET :offset")
+                .bind("productId", productId)
+                .bind("size", size)
+                .bind("offset", (long) page * size)
+                .map((row, meta) -> {
+                    String fullName = row.get("buyer_name", String.class);
+                    String initials = fullName != null
+                            ? java.util.Arrays.stream(fullName.trim().split("\\s+"))
+                                    .filter(w -> !w.isEmpty())
+                                    .map(w -> String.valueOf(w.charAt(0)).toUpperCase())
+                                    .limit(2).reduce("", String::concat)
+                            : "C";
+                    return Review.builder()
+                            .id(row.get("id", UUID.class))
+                            .productId(row.get("product_id", UUID.class))
+                            .buyerId(row.get("buyer_id", UUID.class))
+                            .orderId(row.get("order_id", UUID.class))
+                            .rating(row.get("rating", Short.class))
+                            .title(row.get("title", String.class))
+                            .body(row.get("body", String.class))
+                            .status(co.com.marketplace.model.reviews.ReviewStatus.valueOf(
+                                    ReviewStatusType.valueOf(row.get("status", String.class)).name()))
+                            .isVerifiedPurchase(Boolean.TRUE.equals(row.get("is_verified_purchase", Boolean.class)))
+                            .helpfulCount(row.get("helpful_count", Integer.class))
+                            .createdAt(row.get("created_at", OffsetDateTime.class))
+                            .updatedAt(row.get("updated_at", OffsetDateTime.class))
+                            .buyerName(fullName != null ? fullName : "Comprador")
+                            .buyerInitials(initials.isEmpty() ? "C" : initials)
+                            .producerReply(row.get("producer_reply", String.class))
+                            .producerReplyDate(row.get("producer_reply_date", OffsetDateTime.class))
+                            .build();
+                })
+                .all()
+                .doOnSubscribe(s -> log.debug("[ReviewRepositoryAdapter#findByProductId] DB request: productId={}", productId))
                 .doOnComplete(() -> log.debug("[ReviewRepositoryAdapter#findByProductId] DB response: complete"))
-                .doOnError(e -> log.error("[ReviewRepositoryAdapter#findByProductId] DB error: {}", e.getMessage()))
-                .map(this::toDomain);
+                .doOnError(e -> log.error("[ReviewRepositoryAdapter#findByProductId] DB error: {}", e.getMessage()));
     }
 
     @Override
