@@ -21,9 +21,10 @@ public class ProfileHandler {
     private final UpdateBuyerProfileUseCase updateBuyerProfileUseCase;
     private final UpdateProducerProfileUseCase updateProducerProfileUseCase;
 
-    record BuyerProfilePatch(String city, String department, String preferredPayment,
-                             Boolean newsletterOptIn, String avatarInitials) {}
-    record ProducerProfilePatch(String bio, String city, String department, String avatarInitials) {}
+    record BuyerProfilePatch(String fullName, String phone, String city, String department,
+                             String preferredPayment, Boolean newsletterOptIn, String avatarInitials) {}
+    record ProducerProfilePatch(String fullName, String phone, String bio,
+                                String city, String department, String avatarInitials) {}
 
     public Mono<ServerResponse> getBuyerProfile(ServerRequest request) {
         return userId(request)
@@ -36,8 +37,8 @@ public class ProfileHandler {
                 .flatMap(uid -> request.bodyToMono(BuyerProfilePatch.class)
                         .flatMap(body -> updateBuyerProfileUseCase.execute(uid,
                                 new UpdateBuyerProfileUseCase.Command(
-                                        body.city(), body.department(), body.preferredPayment(),
-                                        body.newsletterOptIn(), body.avatarInitials()))))
+                                        body.fullName(), body.phone(), body.city(), body.department(),
+                                        body.preferredPayment(), body.newsletterOptIn(), body.avatarInitials()))))
                 .flatMap(profile -> ServerResponse.ok().bodyValue(profile));
     }
 
@@ -52,7 +53,8 @@ public class ProfileHandler {
                 .flatMap(uid -> request.bodyToMono(ProducerProfilePatch.class)
                         .flatMap(body -> updateProducerProfileUseCase.execute(uid,
                                 new UpdateProducerProfileUseCase.Command(
-                                        body.bio(), body.city(), body.department(), body.avatarInitials()))))
+                                        body.fullName(), body.phone(), body.bio(),
+                                        body.city(), body.department(), body.avatarInitials()))))
                 .flatMap(profile -> ServerResponse.ok().bodyValue(profile));
     }
 
