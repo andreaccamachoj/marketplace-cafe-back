@@ -100,4 +100,23 @@ class RoleRepositoryAdapterTest {
         StepVerifier.create(adapter.assignRoleToUser(userId, 1))
                 .verifyError(RuntimeException.class);
     }
+
+    @Test
+    void findByName_propagatesError() {
+        when(repository.findByName("BUYER")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByName("BUYER"))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByUserId_propagatesError() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
 }

@@ -135,4 +135,23 @@ class InventoryRepositoryAdapterTest {
         StepVerifier.create(adapter.findByProducerId(producerId))
                 .verifyComplete();
     }
+
+    @Test
+    void findByProductId_propagatesError() {
+        when(repository.findByProductId(productId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByProductId(productId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByProducerId_propagatesError() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByProducerId(producerId))
+                .verifyError(RuntimeException.class);
+    }
 }

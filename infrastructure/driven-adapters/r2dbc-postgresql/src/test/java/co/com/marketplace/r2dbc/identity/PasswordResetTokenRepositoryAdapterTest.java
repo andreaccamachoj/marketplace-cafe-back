@@ -104,4 +104,12 @@ class PasswordResetTokenRepositoryAdapterTest {
         StepVerifier.create(adapter.markUsed(tokenId))
                 .verifyError(RuntimeException.class);
     }
+
+    @Test
+    void findByTokenHash_propagatesError() {
+        when(repository.findByTokenHash("abc123hash")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByTokenHash("abc123hash"))
+                .verifyError(RuntimeException.class);
+    }
 }

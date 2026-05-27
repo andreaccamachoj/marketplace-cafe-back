@@ -109,4 +109,24 @@ class OrderPaymentRepositoryAdapterTest {
                 .expectNextMatches(p -> paymentId.equals(p.getId()))
                 .verifyComplete();
     }
+
+    @Test
+    void findByOrderId_propagatesError() {
+        when(repo.findByOrderId(orderId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByOrderId(orderId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void updateStatus_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.bindNull(anyString(), any(Class.class))).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.updateStatus(paymentId, PaymentStatus.verified, UUID.randomUUID()))
+                .verifyError(RuntimeException.class);
+    }
 }

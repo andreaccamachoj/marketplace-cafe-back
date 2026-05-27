@@ -125,4 +125,33 @@ class FavoriteRepositoryAdapterTest {
                 .expectNext(false)
                 .verifyComplete();
     }
+
+    @Test
+    void findByUserId_propagatesError() {
+        when(repo.findByUserId(userId)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void delete_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.then()).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.delete(userId, productId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void exists_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.exists(userId, productId))
+                .verifyError(RuntimeException.class);
+    }
 }

@@ -68,4 +68,20 @@ class ShippingOptionRepositoryAdapterTest {
         StepVerifier.create(adapter.findById("express"))
                 .verifyComplete();
     }
+
+    @Test
+    void findAll_propagatesError() {
+        when(repo.findAll()).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findAll())
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findById_propagatesError() {
+        when(repo.findById("standard")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById("standard"))
+                .verifyError(RuntimeException.class);
+    }
 }

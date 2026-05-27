@@ -184,4 +184,149 @@ class UserRepositoryAdapterTest {
 
         verify(spec, atLeastOnce()).bind(anyString(), any());
     }
+
+    @Test
+    void findById_propagatesError_whenRepositoryFails() {
+        when(repository.findById(userId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(userId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByEmail_propagatesError_whenRepositoryFails() {
+        when(repository.findByEmail("test@example.com")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByEmail("test@example.com"))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError_whenRepositoryFails() {
+        when(repository.save(any(UserData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.update(user))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void deleteById_propagatesError_whenRepositoryFails() {
+        when(repository.deleteById(userId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.deleteById(userId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void existsByEmail_propagatesError_whenRepositoryFails() {
+        when(repository.existsByEmail("test@example.com")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.existsByEmail("test@example.com"))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findAll_withOnlyRoleFilter_bindsRoleFilter() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.just(user)).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findAll("BUYER", null, null, 0, 10))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(spec).bind(eq("roleFilter"), eq("BUYER"));
+    }
+
+    @Test
+    void findAll_withOnlyStatusFilter_bindsStatusFilter() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.empty()).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findAll(null, UserStatus.active, null, 0, 10))
+                .verifyComplete();
+
+        verify(spec).bind(eq("statusFilter"), eq("active"));
+    }
+
+    @Test
+    void findAll_withOnlySearch_bindsSearch() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.empty()).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findAll(null, null, "cafe", 0, 10))
+                .verifyComplete();
+
+        verify(spec).bind(eq("search"), eq("%cafe%"));
+    }
+
+    @Test
+    void countAll_withOnlyRoleFilter_bindsRoleFilter() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(3L)).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countAll("BUYER", null, null))
+                .expectNext(3L)
+                .verifyComplete();
+
+        verify(spec).bind(eq("roleFilter"), eq("BUYER"));
+    }
+
+    @Test
+    void countAll_withOnlyStatusFilter_bindsStatusFilter() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(2L)).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countAll(null, UserStatus.active, null))
+                .expectNext(2L)
+                .verifyComplete();
+    }
+
+    @Test
+    void countAll_withOnlySearch_bindsSearch() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(1L)).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countAll(null, null, "test"))
+                .expectNext(1L)
+                .verifyComplete();
+
+        verify(spec).bind(eq("search"), eq("%test%"));
+    }
+
+    @Test
+    void countAll_withAllFilters_bindsAll() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(7L)).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countAll("BUYER", UserStatus.active, "test"))
+                .expectNext(7L)
+                .verifyComplete();
+
+        verify(spec, atLeastOnce()).bind(anyString(), any());
+    }
+
+    @Test
+    void findAll_propagatesError_whenDatabaseClientFails() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findAll(null, null, null, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
 }

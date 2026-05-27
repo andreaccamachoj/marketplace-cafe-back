@@ -134,4 +134,54 @@ class CategoryRepositoryAdapterTest {
         StepVerifier.create(adapter.deleteById(categoryId))
                 .verifyComplete();
     }
+
+    @Test
+    void findAll_propagatesError() {
+        when(repository.findAll()).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findAll())
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findById_propagatesError() {
+        when(repository.findById(categoryId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(categoryId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findBySlug_propagatesError() {
+        when(repository.findBySlug("cafe-en-grano")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findBySlug("cafe-en-grano"))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void save_propagatesError() {
+        when(repository.save(any(CategoryData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.save(category))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError() {
+        when(template.update(any(Query.class), any(Update.class), eq(CategoryData.class)))
+                .thenReturn(Mono.error(new RuntimeException("DB error")));
+        when(repository.findById(categoryId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(adapter.update(category))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void deleteById_propagatesError() {
+        when(repository.deleteById(categoryId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.deleteById(categoryId))
+                .verifyError(RuntimeException.class);
+    }
 }

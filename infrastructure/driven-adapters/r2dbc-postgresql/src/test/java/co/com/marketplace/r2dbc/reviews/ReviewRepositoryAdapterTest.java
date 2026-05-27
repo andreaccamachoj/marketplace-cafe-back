@@ -164,4 +164,78 @@ class ReviewRepositoryAdapterTest {
         StepVerifier.create(adapter.findByProducerId(producerId, 0, 10))
                 .verifyComplete();
     }
+
+    @Test
+    void findById_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.findById(reviewId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByProductId_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByProductId(productId, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByProducerId_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByProducerId(producerId, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByBuyerId_propagatesError() {
+        when(repo.findByBuyerId(buyerId, 10, 0L)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByBuyerId(buyerId, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void existsByBuyerAndProduct_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.existsByBuyerAndProduct(buyerId, productId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countByProductId_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countByProductId(productId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countByProducerId_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countByProducerId(producerId))
+                .verifyError(RuntimeException.class);
+    }
 }

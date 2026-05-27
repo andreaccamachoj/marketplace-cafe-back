@@ -229,6 +229,7 @@ public class OrderRepositoryAdapter implements OrderGateway {
                 .bind("year", year)
                 .map((row, meta) -> row.get(0, Integer.class))
                 .one()
+                .defaultIfEmpty(1)
                 .doOnSubscribe(s -> log.debug("[OrderRepositoryAdapter#nextYearlySequence] DB request: year={}", year))
                 .doOnSuccess(r -> log.debug("[OrderRepositoryAdapter#nextYearlySequence] DB response: result={}", r))
                 .doOnError(e -> log.error("[OrderRepositoryAdapter#nextYearlySequence] DB error [{}]: {}", e.getClass().getSimpleName(), e.getMessage()));

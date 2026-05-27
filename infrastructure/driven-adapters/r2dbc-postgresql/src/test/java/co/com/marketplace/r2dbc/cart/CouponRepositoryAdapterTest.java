@@ -81,4 +81,12 @@ class CouponRepositoryAdapterTest {
         StepVerifier.create(adapter.incrementUsage(1))
                 .verifyError(RuntimeException.class);
     }
+
+    @Test
+    void findByCode_propagatesError() {
+        when(repo.findByCode("DESCUENTO10")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByCode("DESCUENTO10"))
+                .verifyError(RuntimeException.class);
+    }
 }

@@ -130,4 +130,25 @@ class ActivityLogRepositoryAdapterTest {
                 .expectNext(3L)
                 .verifyComplete();
     }
+
+    @Test
+    void findAll_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findAll(null, null, null, null, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countAll_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countAll(null, null, null, null))
+                .verifyError(RuntimeException.class);
+    }
 }

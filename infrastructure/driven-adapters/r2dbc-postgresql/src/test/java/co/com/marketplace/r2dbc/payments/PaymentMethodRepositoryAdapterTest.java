@@ -90,4 +90,28 @@ class PaymentMethodRepositoryAdapterTest {
         StepVerifier.create(adapter.findByCode("UNKNOWN"))
                 .verifyComplete();
     }
+
+    @Test
+    void findAllActive_propagatesError() {
+        when(repo.findAllActive()).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findAllActive())
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findById_propagatesError() {
+        when(repo.findById(methodId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(methodId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByCode_propagatesError() {
+        when(repo.findByCode("NEQUI")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByCode("NEQUI"))
+                .verifyError(RuntimeException.class);
+    }
 }

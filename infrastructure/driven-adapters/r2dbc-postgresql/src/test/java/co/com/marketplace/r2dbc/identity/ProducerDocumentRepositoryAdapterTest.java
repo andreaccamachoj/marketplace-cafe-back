@@ -87,4 +87,12 @@ class ProducerDocumentRepositoryAdapterTest {
         StepVerifier.create(adapter.findByProducerId(producerId))
                 .verifyComplete();
     }
+
+    @Test
+    void findByProducerId_propagatesError() {
+        when(repository.findByProducerId(producerId)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByProducerId(producerId))
+                .verifyError(RuntimeException.class);
+    }
 }

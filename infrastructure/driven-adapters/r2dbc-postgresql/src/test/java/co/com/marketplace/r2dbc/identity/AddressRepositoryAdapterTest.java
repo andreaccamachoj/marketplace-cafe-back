@@ -145,4 +145,44 @@ class AddressRepositoryAdapterTest {
         StepVerifier.create(adapter.clearDefaultForUser(userId))
                 .verifyError(RuntimeException.class);
     }
+
+    @Test
+    void save_propagatesError_whenRepositoryFails() {
+        when(repository.save(any(AddressData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.save(address))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findById_propagatesError_whenRepositoryFails() {
+        when(repository.findById(addressId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(addressId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByUserId_propagatesError_whenRepositoryFails() {
+        when(repository.findByUserId(userId)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError_whenTemplateFails() {
+        when(template.update(any(AddressData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.update(address))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void deleteById_propagatesError_whenRepositoryFails() {
+        when(repository.deleteById(addressId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.deleteById(addressId))
+                .verifyError(RuntimeException.class);
+    }
 }

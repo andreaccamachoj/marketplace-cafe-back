@@ -80,4 +80,12 @@ class PrivacyConsentRepositoryAdapterTest {
         StepVerifier.create(adapter.findLatestByUserId(userId))
                 .verifyComplete();
     }
+
+    @Test
+    void findLatestByUserId_propagatesError() {
+        when(repository.findLatestByUserId(userId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findLatestByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
 }

@@ -122,4 +122,53 @@ class ProducerProfileRepositoryAdapterTest {
                 .expectNext(3L)
                 .verifyComplete();
     }
+
+    @Test
+    void save_propagatesError() {
+        when(repository.save(any(ProducerProfileData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.save(profile))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByUserId_propagatesError() {
+        when(repository.findByUserId(userId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findById_propagatesError() {
+        when(repository.findById(profileId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(profileId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError() {
+        when(template.update(any(ProducerProfileData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.update(profile))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByStatus_propagatesError() {
+        when(repository.findByStatus(ProducerStatusType.pending, 10, 0L))
+                .thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByStatus(ProducerStatus.pending, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countByStatus_propagatesError() {
+        when(repository.countByStatus(ProducerStatusType.pending)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.countByStatus(ProducerStatus.pending))
+                .verifyError(RuntimeException.class);
+    }
 }

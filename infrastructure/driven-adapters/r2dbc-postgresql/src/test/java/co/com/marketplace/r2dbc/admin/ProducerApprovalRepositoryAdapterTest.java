@@ -145,4 +145,55 @@ class ProducerApprovalRepositoryAdapterTest {
                 .expectNext(5L)
                 .verifyComplete();
     }
+
+    @Test
+    void findById_propagatesError() {
+        when(repo.findById(approvalId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(approvalId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByProducerId_propagatesError() {
+        when(repo.findByProducerId(producerId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByProducerId(producerId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError() {
+        when(template.update(any(ProducerApprovalData.class)))
+                .thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.update(approval))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByStatus_propagatesError() {
+        when(repo.findByStatus(ProducerStatusType.pending, 10, 0L))
+                .thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByStatus(ProducerStatus.pending, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findAll_propagatesError() {
+        when(repo.findAllPaged(10, 0L)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findAll(0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countByStatus_propagatesError() {
+        when(repo.countByStatus(ProducerStatusType.pending))
+                .thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.countByStatus(ProducerStatus.pending))
+                .verifyError(RuntimeException.class);
+    }
 }

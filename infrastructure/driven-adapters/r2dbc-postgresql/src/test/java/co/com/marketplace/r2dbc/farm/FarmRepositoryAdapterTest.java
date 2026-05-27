@@ -167,4 +167,51 @@ class FarmRepositoryAdapterTest {
         StepVerifier.create(adapter.findCertificationsByFarmId(farmId))
                 .verifyComplete();
     }
+
+    @Test
+    void findByProducerId_propagatesError() {
+        when(farmRepository.findByProducerId(producerId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByProducerId(producerId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError() {
+        when(template.update(any(Query.class), any(Update.class), eq(FarmData.class)))
+                .thenReturn(Mono.error(new RuntimeException("DB error")));
+        when(farmRepository.findById(farmId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(adapter.update(farm))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void saveCertification_propagatesError() {
+        when(certRepository.save(any(FarmCertificationData.class)))
+                .thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        FarmCertification cert = FarmCertification.builder()
+                .id(certId).farmId(farmId).certificationId(1)
+                .issuer("USDA").status(DocStatus.approved).notes("organic|Orgánico").build();
+
+        StepVerifier.create(adapter.saveCertification(cert))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void deleteCertification_propagatesError() {
+        when(certRepository.deleteById(certId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.deleteCertification(certId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findCertificationsByFarmId_propagatesError() {
+        when(certRepository.findByFarmId(farmId)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findCertificationsByFarmId(farmId))
+                .verifyError(RuntimeException.class);
+    }
 }

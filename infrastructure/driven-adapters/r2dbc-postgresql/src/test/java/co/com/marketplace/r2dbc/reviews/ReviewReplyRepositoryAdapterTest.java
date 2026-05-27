@@ -96,4 +96,12 @@ class ReviewReplyRepositoryAdapterTest {
         StepVerifier.create(adapter.findByReviewId(reviewId))
                 .verifyComplete();
     }
+
+    @Test
+    void findByReviewId_propagatesError() {
+        when(repo.findByReviewId(reviewId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByReviewId(reviewId))
+                .verifyError(RuntimeException.class);
+    }
 }

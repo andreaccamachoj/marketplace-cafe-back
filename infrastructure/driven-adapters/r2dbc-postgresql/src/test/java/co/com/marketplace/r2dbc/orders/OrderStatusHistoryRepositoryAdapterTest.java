@@ -98,4 +98,12 @@ class OrderStatusHistoryRepositoryAdapterTest {
         StepVerifier.create(adapter.findByOrderId(orderId))
                 .verifyComplete();
     }
+
+    @Test
+    void findByOrderId_propagatesError() {
+        when(repo.findByOrderId(orderId)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByOrderId(orderId))
+                .verifyError(RuntimeException.class);
+    }
 }

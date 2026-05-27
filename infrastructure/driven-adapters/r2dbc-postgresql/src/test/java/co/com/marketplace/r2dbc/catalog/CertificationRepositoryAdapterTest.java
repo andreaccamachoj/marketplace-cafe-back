@@ -65,4 +65,20 @@ class CertificationRepositoryAdapterTest {
         StepVerifier.create(adapter.findByCode("UNKNOWN"))
                 .verifyComplete();
     }
+
+    @Test
+    void findAll_propagatesError() {
+        when(repository.findAll()).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findAll())
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByCode_propagatesError() {
+        when(repository.findByCode("ORGANIC")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByCode("ORGANIC"))
+                .verifyError(RuntimeException.class);
+    }
 }

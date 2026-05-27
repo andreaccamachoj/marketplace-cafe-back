@@ -25,6 +25,8 @@ dependencies {
     testImplementation 'tools.jackson.core:jackson-databind'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.springframework.boot:spring-boot-starter-webflux'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 tasks.register('explodedJar', Copy) {

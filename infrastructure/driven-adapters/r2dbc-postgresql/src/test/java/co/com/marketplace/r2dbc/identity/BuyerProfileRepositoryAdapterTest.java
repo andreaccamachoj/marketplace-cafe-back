@@ -99,4 +99,20 @@ class BuyerProfileRepositoryAdapterTest {
                 .expectNextMatches(p -> profileId.equals(p.getId()))
                 .verifyComplete();
     }
+
+    @Test
+    void findByUserId_propagatesError_whenRepositoryFails() {
+        when(repository.findByUserId(userId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void update_propagatesError_whenTemplateFails() {
+        when(template.update(any(BuyerProfileData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.update(profile))
+                .verifyError(RuntimeException.class);
+    }
 }

@@ -172,4 +172,155 @@ class OrderRepositoryAdapterTest {
         StepVerifier.create(adapter.findByProducerId(producerId, null, 0, 10))
                 .verifyComplete();
     }
+
+    @Test
+    void findById_propagatesError() {
+        when(orderRepo.findById(orderId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(orderId))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByCode_propagatesError() {
+        when(orderRepo.findByCode("WCM-2024-001")).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByCode("WCM-2024-001"))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void updateStatus_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.updateStatus(orderId, OrderStatus.confirmed))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByBuyerId_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByBuyerId(buyerId, null, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void findByProducerId_propagatesError() {
+        UUID producerId = UUID.randomUUID();
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.error(new RuntimeException("DB error"))).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByProducerId(producerId, null, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countByBuyerId_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countByBuyerId(buyerId, null))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void nextYearlySequence_propagatesError() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.nextYearlySequence(2024))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void save_returnsOrder_whenTotalsMatch() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.bindNull(anyString(), any(Class.class))).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(orderData)).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.save(validOrder))
+                .expectNextMatches(o -> orderId.equals(o.getId()) && "WCM-2024-001".equals(o.getCode()))
+                .verifyComplete();
+    }
+
+    @Test
+    void findByBuyerId_withStatusFilter_bindsStatus() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.empty()).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByBuyerId(buyerId, OrderStatus.confirmed, 0, 10))
+                .verifyComplete();
+
+        verify(spec).bind(eq("status"), eq("confirmed"));
+    }
+
+    @Test
+    void findByBuyerId_withResults_returnsMappedOrders() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.just(orderData)).when(fetchSpec).all();
+        when(itemRepo.findByOrderId(orderId)).thenReturn(Flux.empty());
+
+        StepVerifier.create(adapter.findByBuyerId(buyerId, null, 0, 10))
+                .expectNextMatches(o -> orderId.equals(o.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void findByProducerId_withStatusFilter_bindsStatus() {
+        UUID producerId = UUID.randomUUID();
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Flux.empty()).when(fetchSpec).all();
+
+        StepVerifier.create(adapter.findByProducerId(producerId, OrderStatus.confirmed, 0, 10))
+                .verifyComplete();
+
+        verify(spec).bind(eq("status"), eq("confirmed"));
+    }
+
+    @Test
+    void countByBuyerId_withStatusFilter_bindsStatus() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(2L)).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.countByBuyerId(buyerId, OrderStatus.confirmed))
+                .expectNext(2L)
+                .verifyComplete();
+
+        verify(spec).bind(eq("status"), eq("confirmed"));
+    }
+
+    @Test
+    void nextYearlySequence_returnsDefault1_whenDbReturnsEmpty() {
+        when(db.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.empty()).when(fetchSpec).one();
+
+        StepVerifier.create(adapter.nextYearlySequence(2024))
+                .expectNext(1)
+                .verifyComplete();
+    }
 }

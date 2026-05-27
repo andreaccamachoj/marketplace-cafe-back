@@ -142,4 +142,20 @@ class NotificationRepositoryAdapterTest {
         StepVerifier.create(adapter.markAllRead(userId))
                 .verifyError(RuntimeException.class);
     }
+
+    @Test
+    void findByUserId_propagatesError() {
+        when(repo.findByUserId(userId, 10, 0L)).thenReturn(Flux.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findByUserId(userId, 0, 10))
+                .verifyError(RuntimeException.class);
+    }
+
+    @Test
+    void countByUserId_propagatesError() {
+        when(repo.countByUserId(userId)).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.countByUserId(userId))
+                .verifyError(RuntimeException.class);
+    }
 }
