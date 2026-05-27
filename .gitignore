@@ -334,3 +334,9 @@ gradle-app.setting
 # -----
 *.hprof
 build-cache
+
+CLAUDE.MD
+memory
+.claude
+md
+.github

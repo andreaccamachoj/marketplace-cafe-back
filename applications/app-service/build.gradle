@@ -1,13 +1,32 @@
 apply plugin: 'org.springframework.boot'
 
 dependencies {
-	implementation project(':reactive-web')
+    implementation project(':reactive-web')
     implementation project(':model')
     implementation project(':usecase')
-    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation project(':r2dbc-postgresql')
+    implementation project(':security-jwt')
+
+    implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    runtimeOnly 'org.postgresql:r2dbc-postgresql'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.7.0'
+
     runtimeOnly('org.springframework.boot:spring-boot-devtools')
     testImplementation 'com.tngtech.archunit:archunit:1.4.1'
     testImplementation 'tools.jackson.core:jackson-databind'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webflux'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 tasks.register('explodedJar', Copy) {
@@ -16,11 +35,9 @@ tasks.register('explodedJar', Copy) {
 }
 
 jar {
-    // To disable the *-plain.jar
     enabled = false
 }
 
 bootJar {
-    // Sets output jar name
     archiveFileName = "${project.getParent().getName()}.${archiveExtension.get()}"
 }
