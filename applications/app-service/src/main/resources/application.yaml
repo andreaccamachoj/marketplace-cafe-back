@@ -34,6 +34,8 @@ aws:
   region: ${AWS_REGION:us-east-1}
   s3:
     bucket: ${AWS_S3_BUCKET:wcm-product-images}
+  sqs:
+    order-status-queue-url: ${AWS_SQS_QUEUE_URL:https://sqs.us-east-1.amazonaws.com/000000000000/wcm-order-status}
 
 management:
   endpoints:
