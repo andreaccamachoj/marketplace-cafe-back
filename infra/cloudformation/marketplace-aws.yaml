@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  World Coffee Marketplace - infraestructura AWS para (1) imágenes de portada de
+  producto en S3 y (2) notificación por correo de cambios de estado de pedido
+  (SQS -> Lambda -> SES). Diseñada para mantenerse dentro de la capa gratuita.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: wcm
+    Description: Prefijo para nombrar los recursos.
+
+  ImagesBucketName:
+    Type: String
+    Default: wcm-product-images
+    Description: Nombre GLOBALMENTE único del bucket de imágenes de producto.
+
+  OrderStatusQueueName:
+    Type: String
+    Default: wcm-order-status
+    Description: Nombre de la cola SQS de cambios de estado de pedido.
+
+  SesSender:
+    Type: String
+    Description: Dirección/identidad verificada en SES usada como remitente (ej. no-reply@tudominio.com).
+
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: Bucket S3 donde está subido el function.zip de la Lambda.
+
+  LambdaCodeS3Key:
+    Type: String
+    Default: order-status-notifier/function.zip
+    Description: Clave (key) del function.zip dentro de LambdaCodeS3Bucket.
+
+  AllowedImageOrigin:
+    Type: String
+    Default: "*"
+    Description: Origen permitido por CORS para leer las imágenes (ej. https://tudominio.com).
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # TAREA 1 - Imágenes de portada en S3 (lectura pública vía bucket policy)
+  # ---------------------------------------------------------------------------
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ImagesBucketName
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET, HEAD]
+            AllowedOrigins: [!Ref AllowedImageOrigin]
+            AllowedHeaders: ["*"]
+            MaxAge: 3600
+
+  ImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImagesBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${ImagesBucket.Arn}/*"
+
+  # ---------------------------------------------------------------------------
+  # TAREA 2 - Cola SQS + DLQ
+  # ---------------------------------------------------------------------------
+  OrderStatusDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${OrderStatusQueueName}-dlq"
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  OrderStatusQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref OrderStatusQueueName
+      VisibilityTimeout: 180           # >= 6x el timeout de la Lambda (30s)
+      MessageRetentionPeriod: 345600   # 4 días
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt OrderStatusDLQ.Arn
+        maxReceiveCount: 3
+
+  # ---------------------------------------------------------------------------
+  # TAREA 2 - Lambda consumidora (SQS -> SES)
+  # ---------------------------------------------------------------------------
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-order-status-notifier-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: order-status-notifier-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ConsumeQueue
+                Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt OrderStatusQueue.Arn
+              - Sid: SendEmail
+                Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
+              - Sid: Logs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  NotifierFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-order-status-notifier"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Environment:
+        Variables:
+          SES_SENDER: !Ref SesSender
+
+  QueueEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt OrderStatusQueue.Arn
+      FunctionName: !Ref NotifierFunction
+      BatchSize: 10
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+
+  # ---------------------------------------------------------------------------
+  # Política para el BACKEND (subir/borrar imágenes y publicar en la cola).
+  # Adjúntala al usuario o rol IAM bajo el que corre el backend.
+  # ---------------------------------------------------------------------------
+  BackendAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ProjectName}-backend-access"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ImagesReadWrite
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource: !Sub "${ImagesBucket.Arn}/*"
+          - Sid: PublishToQueue
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt OrderStatusQueue.Arn
+
+Outputs:
+  ImagesBucketNameOut:
+    Description: Valor para AWS_S3_BUCKET (backend).
+    Value: !Ref ImagesBucket
+
+  ImagesBucketDomain:
+    Description: Dominio público del bucket de imágenes.
+    Value: !GetAtt ImagesBucket.RegionalDomainName
+
+  OrderStatusQueueUrl:
+    Description: Valor para AWS_SQS_QUEUE_URL (backend).
+    Value: !Ref OrderStatusQueue
+
+  OrderStatusQueueArn:
+    Description: ARN de la cola de cambios de estado.
+    Value: !GetAtt OrderStatusQueue.Arn
+
+  NotifierFunctionName:
+    Description: Nombre de la Lambda notificadora.
+    Value: !Ref NotifierFunction
+
+  BackendAccessPolicyArn:
+    Description: ARN de la política IAM a adjuntar al principal del backend.
+    Value: !Ref BackendAccessPolicy
+
+  AwsRegionOut:
+    Description: Valor para AWS_REGION (backend).
+    Value: !Ref AWS::Region
