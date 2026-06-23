@@ -13,8 +13,10 @@ import co.com.marketplace.model.orders.OrderStatus;
 import co.com.marketplace.model.orders.PaymentStatus;
 import co.com.marketplace.usecase.catalog.ArchiveProductUseCase;
 import co.com.marketplace.usecase.catalog.CreateProductUseCase;
+import co.com.marketplace.usecase.catalog.DeleteProductCoverImageUseCase;
 import co.com.marketplace.usecase.catalog.GetProductsByProducerUseCase;
 import co.com.marketplace.usecase.catalog.ListMyProductsUseCase;
+import co.com.marketplace.usecase.catalog.UpdateProductCoverImageUseCase;
 import co.com.marketplace.usecase.catalog.UpdateProductUseCase;
 import co.com.marketplace.usecase.farm.AddFarmCertificationUseCase;
 import co.com.marketplace.usecase.farm.GetFarmCertificationsUseCase;
@@ -30,8 +32,11 @@ import co.com.marketplace.usecase.reviews.ListProducerReviewsUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -60,6 +65,8 @@ class ProducerHandlerProductsTest {
     @MockitoBean private CreateProductUseCase createProductUseCase;
     @MockitoBean private UpdateProductUseCase updateProductUseCase;
     @MockitoBean private ArchiveProductUseCase archiveProductUseCase;
+    @MockitoBean private UpdateProductCoverImageUseCase updateProductCoverImageUseCase;
+    @MockitoBean private DeleteProductCoverImageUseCase deleteProductCoverImageUseCase;
     @MockitoBean private GetProductsByProducerUseCase getProductsByProducerUseCase;
     @MockitoBean private ListProducerOrdersUseCase listProducerOrdersUseCase;
     @MockitoBean private UpdateOrderStatusUseCase updateOrderStatusUseCase;
@@ -227,5 +234,48 @@ class ProducerHandlerProductsTest {
                 .uri("/api/producer/farm/certifications/" + UUID.randomUUID())
                 .exchange()
                 .expectStatus().isNoContent();
+    }
+
+    @Test
+    void uploadCover_returns200() {
+        when(updateProductCoverImageUseCase.execute(any(), any(), any())).thenReturn(Mono.just(buildProduct()));
+
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", new ByteArrayResource(new byte[]{1, 2, 3}) {
+            @Override
+            public String getFilename() {
+                return "cover.png";
+            }
+        }).contentType(MediaType.IMAGE_PNG);
+
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
+                .post().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void uploadCover_missingFilePart_returns400() {
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("other", "no-file");
+
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
+                .post().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void deleteCover_returns200() {
+        when(deleteProductCoverImageUseCase.execute(any())).thenReturn(Mono.just(buildProduct()));
+
+        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
+                .delete().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
+                .exchange()
+                .expectStatus().isOk();
     }
 }

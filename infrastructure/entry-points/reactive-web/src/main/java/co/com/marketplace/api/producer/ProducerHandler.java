@@ -1,11 +1,14 @@
 package co.com.marketplace.api.producer;
 
 import co.com.marketplace.model.catalog.ProductStatus;
+import co.com.marketplace.model.exception.ValidationException;
 import co.com.marketplace.model.orders.OrderStatus;
 import co.com.marketplace.usecase.catalog.ArchiveProductUseCase;
 import co.com.marketplace.usecase.catalog.CreateProductUseCase;
+import co.com.marketplace.usecase.catalog.DeleteProductCoverImageUseCase;
 import co.com.marketplace.usecase.catalog.GetProductsByProducerUseCase;
 import co.com.marketplace.usecase.catalog.ListMyProductsUseCase;
+import co.com.marketplace.usecase.catalog.UpdateProductCoverImageUseCase;
 import co.com.marketplace.usecase.catalog.UpdateProductUseCase;
 import co.com.marketplace.usecase.farm.AddFarmCertificationUseCase;
 import co.com.marketplace.usecase.farm.GetFarmCertificationsUseCase;
@@ -19,7 +22,10 @@ import co.com.marketplace.usecase.orders.ListProducerOrdersUseCase;
 import co.com.marketplace.usecase.orders.UpdateOrderStatusUseCase;
 import co.com.marketplace.usecase.reviews.ListProducerReviewsUseCase;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.codec.multipart.Part;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -37,6 +43,8 @@ public class ProducerHandler {
     private final CreateProductUseCase createProductUseCase;
     private final UpdateProductUseCase updateProductUseCase;
     private final ArchiveProductUseCase archiveProductUseCase;
+    private final UpdateProductCoverImageUseCase updateProductCoverImageUseCase;
+    private final DeleteProductCoverImageUseCase deleteProductCoverImageUseCase;
     private final GetProductsByProducerUseCase getProductsByProducerUseCase;
     private final ListProducerOrdersUseCase listProducerOrdersUseCase;
     private final UpdateOrderStatusUseCase updateOrderStatusUseCase;
@@ -102,6 +110,38 @@ public class ProducerHandler {
                         .as(tx::transactional))
                 .then(ServerResponse.noContent().build());
     }
+
+    public Mono<ServerResponse> uploadCover(ServerRequest request) {
+        UUID productId = UUID.fromString(request.pathVariable("id"));
+        return request.multipartData()
+                .flatMap(parts -> {
+                    Part part = parts.toSingleValueMap().get("file");
+                    if (!(part instanceof FilePart filePart)) {
+                        return Mono.<ContentPart>error(new ValidationException("IMAGE_REQUIRED",
+                                "Debe adjuntar la imagen en el campo 'file'"));
+                    }
+                    String contentType = filePart.headers().getContentType() != null
+                            ? filePart.headers().getContentType().toString()
+                            : "";
+                    return DataBufferUtils.join(filePart.content())
+                            .map(buffer -> {
+                                byte[] bytes = new byte[buffer.readableByteCount()];
+                                buffer.read(bytes);
+                                DataBufferUtils.release(buffer);
+                                return new ContentPart(bytes, contentType);
+                            });
+                })
+                .flatMap(cp -> updateProductCoverImageUseCase.execute(productId, cp.content(), cp.contentType()))
+                .flatMap(product -> ServerResponse.ok().bodyValue(product));
+    }
+
+    public Mono<ServerResponse> deleteCover(ServerRequest request) {
+        UUID productId = UUID.fromString(request.pathVariable("id"));
+        return deleteProductCoverImageUseCase.execute(productId)
+                .flatMap(product -> ServerResponse.ok().bodyValue(product));
+    }
+
+    private record ContentPart(byte[] content, String contentType) {}
 
     public Mono<ServerResponse> listOrders(ServerRequest request) {
         OrderStatus status = request.queryParam("status").map(OrderStatus::valueOf).orElse(null);

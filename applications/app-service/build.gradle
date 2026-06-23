@@ -6,6 +6,7 @@ dependencies {
     implementation project(':usecase')
     implementation project(':r2dbc-postgresql')
     implementation project(':security-jwt')
+    implementation project(':s3-bucket')
 
     implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
     implementation 'org.springframework.boot:spring-boot-starter-security'

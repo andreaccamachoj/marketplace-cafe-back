@@ -19,6 +19,8 @@ public class ProducerRouter {
                 .POST("/api/producer/products",                             accept(MediaType.APPLICATION_JSON), h::createProduct)
                 .PUT("/api/producer/products/{id}",                         accept(MediaType.APPLICATION_JSON), h::updateProduct)
                 .POST("/api/producer/products/{id}/archive",                h::archiveProduct)
+                .POST("/api/producer/products/{id}/cover",                  accept(MediaType.MULTIPART_FORM_DATA), h::uploadCover)
+                .DELETE("/api/producer/products/{id}/cover",                h::deleteCover)
                 .GET("/api/producer/orders",                                h::listOrders)
                 .PATCH("/api/producer/orders/{id}/status",                  accept(MediaType.APPLICATION_JSON), h::updateOrderStatus)
                 .POST("/api/producer/orders/{id}/payment/confirm",          accept(MediaType.APPLICATION_JSON), h::confirmPayment)
