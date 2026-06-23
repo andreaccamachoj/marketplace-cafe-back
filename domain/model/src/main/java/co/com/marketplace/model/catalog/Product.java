@@ -24,6 +24,7 @@ public class Product {
     String unit;
     String region;
     String emoji;
+    String coverImageUrl;
     int soldCount;
     double rating;
     int reviewCount;

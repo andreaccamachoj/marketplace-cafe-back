@@ -12,6 +12,7 @@ public interface ProductGateway {
     Mono<Product> save(Product product);
     Mono<Product> findById(UUID id);
     Mono<Product> update(Product product);
+    Mono<Product> updateCoverImage(UUID productId, String coverImageUrl);
     Mono<Void> updateStatus(UUID id, ProductStatus status);
     Flux<Product> findAll(String search, UUID categoryId, String region,
                           BigDecimal minPrice, BigDecimal maxPrice,
