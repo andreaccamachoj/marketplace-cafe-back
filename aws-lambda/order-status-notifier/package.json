@@ -1,0 +1,16 @@
+{
+  "name": "order-status-notifier",
+  "version": "1.0.0",
+  "description": "AWS Lambda that consumes order-status-changed messages from SQS and emails the buyer through SES.",
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "zip": "zip -r function.zip index.mjs email-template.mjs package.json"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ses": "^3.700.0"
+  }
+}
