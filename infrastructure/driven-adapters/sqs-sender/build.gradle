@@ -1,0 +1,9 @@
+dependencies {
+    implementation project(':model')
+    implementation 'org.springframework:spring-context'
+    implementation 'org.slf4j:slf4j-api'
+    implementation 'tools.jackson.core:jackson-databind'
+    implementation platform('software.amazon.awssdk:bom:2.31.11')
+    implementation 'software.amazon.awssdk:sqs'
+    testImplementation 'io.projectreactor:reactor-test'
+}

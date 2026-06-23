@@ -30,3 +30,6 @@ project(':security-jwt').projectDir = file('./infrastructure/driven-adapters/sec
 
 include ':s3-bucket'
 project(':s3-bucket').projectDir = file('./infrastructure/driven-adapters/s3-bucket')
+
+include ':sqs-sender'
+project(':sqs-sender').projectDir = file('./infrastructure/driven-adapters/sqs-sender')
