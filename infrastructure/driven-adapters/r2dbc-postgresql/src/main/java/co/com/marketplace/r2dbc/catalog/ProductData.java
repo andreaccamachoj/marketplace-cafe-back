@@ -30,6 +30,7 @@ public class ProductData {
     private String unit;
     private String region;
     private String emoji;
+    private String coverImageUrl;
     private int soldCount;
     private String status;
     private OffsetDateTime createdAt;

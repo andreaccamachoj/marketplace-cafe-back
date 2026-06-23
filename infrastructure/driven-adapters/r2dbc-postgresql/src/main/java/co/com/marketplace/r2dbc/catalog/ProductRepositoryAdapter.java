@@ -161,6 +161,18 @@ public class ProductRepositoryAdapter implements ProductGateway {
     }
 
     @Override
+    public Mono<Product> updateCoverImage(UUID productId, String coverImageUrl) {
+        return template.update(
+                Query.query(Criteria.where("id").is(productId)),
+                Update.update("cover_image_url", coverImageUrl).set("updated_at", OffsetDateTime.now()),
+                ProductData.class
+        ).doOnSubscribe(s -> log.debug("[ProductRepositoryAdapter#updateCoverImage] DB request: id={}", productId))
+                .doOnSuccess(r -> log.debug("[ProductRepositoryAdapter#updateCoverImage] DB response: result={}", r))
+                .doOnError(e -> log.error("[ProductRepositoryAdapter#updateCoverImage] DB error: {}", e.getMessage()))
+                .then(findById(productId));
+    }
+
+    @Override
     public Mono<Void> updateStatus(UUID id, ProductStatus status) {
         return template.update(
                 Query.query(Criteria.where("id").is(id)),
@@ -361,6 +373,7 @@ public class ProductRepositoryAdapter implements ProductGateway {
                 .unit(row.get("unit", String.class))
                 .region(row.get("region", String.class))
                 .emoji(row.get("emoji", String.class))
+                .coverImageUrl(row.get("cover_image_url", String.class))
                 .soldCount(row.get("sold_count", Integer.class))
                 .status(row.get("status", String.class))
                 .createdAt(row.get("created_at", OffsetDateTime.class))
@@ -410,6 +423,7 @@ public class ProductRepositoryAdapter implements ProductGateway {
                 .unit(d.getUnit())
                 .region(d.getRegion())
                 .emoji(d.getEmoji())
+                .coverImageUrl(d.getCoverImageUrl())
                 .soldCount(d.getSoldCount())
                 .status(d.getStatus() != null ? ProductStatus.valueOf(d.getStatus()) : null)
                 .createdAt(d.getCreatedAt())
@@ -439,6 +453,7 @@ public class ProductRepositoryAdapter implements ProductGateway {
                 .unit(p.getUnit())
                 .region(p.getRegion())
                 .emoji(p.getEmoji())
+                .coverImageUrl(p.getCoverImageUrl())
                 .soldCount(p.getSoldCount())
                 .status(p.getStatus() != null ? p.getStatus().name() : null)
                 .createdAt(p.getCreatedAt())
