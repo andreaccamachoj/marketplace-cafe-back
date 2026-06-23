@@ -1,0 +1,7 @@
+dependencies {
+    implementation project(':model')
+    implementation 'org.springframework:spring-context'
+    implementation platform('software.amazon.awssdk:bom:2.31.11')
+    implementation 'software.amazon.awssdk:s3'
+    testImplementation 'io.projectreactor:reactor-test'
+}

@@ -27,3 +27,6 @@ project(':r2dbc-postgresql').projectDir = file('./infrastructure/driven-adapters
 
 include ':security-jwt'
 project(':security-jwt').projectDir = file('./infrastructure/driven-adapters/security-jwt')
+
+include ':s3-bucket'
+project(':s3-bucket').projectDir = file('./infrastructure/driven-adapters/s3-bucket')
