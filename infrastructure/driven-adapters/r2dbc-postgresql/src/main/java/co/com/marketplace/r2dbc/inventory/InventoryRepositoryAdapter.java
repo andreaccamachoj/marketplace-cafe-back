@@ -22,7 +22,29 @@ public class InventoryRepositoryAdapter implements InventoryGateway {
 
     @Override
     public Mono<InventoryItem> save(InventoryItem item) {
-        return repository.save(toData(item))
+        // Explicit upsert: a pre-set UUID makes Spring Data's repository.save() run an
+        // UPDATE (0 rows) instead of an INSERT, so the row was never created on product creation.
+        DatabaseClient.GenericExecuteSpec sql = databaseClient.sql(
+                "INSERT INTO marketplace.inventory (id, product_id, quantity, max_stock, updated_at) " +
+                "VALUES (:id, :productId, :quantity, :maxStock, :updatedAt) " +
+                "ON CONFLICT (product_id) DO UPDATE SET quantity = EXCLUDED.quantity, " +
+                "max_stock = EXCLUDED.max_stock, updated_at = EXCLUDED.updated_at RETURNING *")
+                .bind("id", item.getId())
+                .bind("productId", item.getProductId())
+                .bind("quantity", item.getQuantity())
+                .bind("updatedAt", item.getUpdatedAt());
+        sql = item.getMaxStock() != null
+                ? sql.bind("maxStock", item.getMaxStock())
+                : sql.bindNull("maxStock", Integer.class);
+        return sql
+                .map((row, meta) -> InventoryData.builder()
+                        .id(row.get("id", UUID.class))
+                        .productId(row.get("product_id", UUID.class))
+                        .quantity(row.get("quantity", Integer.class))
+                        .maxStock(row.get("max_stock", Integer.class))
+                        .updatedAt(row.get("updated_at", OffsetDateTime.class))
+                        .build())
+                .one()
                 .doOnSubscribe(s -> log.debug("[InventoryRepositoryAdapter#save] DB request: productId={}", item.getProductId()))
                 .doOnSuccess(r -> log.debug("[InventoryRepositoryAdapter#save] DB response: result={}", r != null))
                 .doOnError(e -> log.error("[InventoryRepositoryAdapter#save] DB error: {}", e.getMessage()))

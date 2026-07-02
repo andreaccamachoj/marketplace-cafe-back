@@ -58,7 +58,10 @@ class InventoryRepositoryAdapterTest {
 
     @Test
     void save_returnsItem_whenSuccessful() {
-        when(repository.save(any(InventoryData.class))).thenReturn(Mono.just(inventoryData));
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.just(inventoryData)).when(fetchSpec).one();
 
         StepVerifier.create(adapter.save(inventoryItem))
                 .expectNextMatches(i -> itemId.equals(i.getId()) && 100 == i.getQuantity())
@@ -66,8 +69,11 @@ class InventoryRepositoryAdapterTest {
     }
 
     @Test
-    void save_propagatesError_whenRepositoryFails() {
-        when(repository.save(any(InventoryData.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+    void save_propagatesError_whenDatabaseFails() {
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        doReturn(fetchSpec).when(spec).map(any(BiFunction.class));
+        doReturn(Mono.error(new RuntimeException("DB error"))).when(fetchSpec).one();
 
         StepVerifier.create(adapter.save(inventoryItem))
                 .verifyError(RuntimeException.class);
