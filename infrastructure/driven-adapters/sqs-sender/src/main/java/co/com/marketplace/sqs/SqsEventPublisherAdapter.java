@@ -49,7 +49,7 @@ public class SqsEventPublisherAdapter implements OrderEventPublisherGateway {
         p.put("orderCode", e.orderCode());
         p.put("previousStatus", e.previousStatus() != null ? e.previousStatus().name() : null);
         p.put("newStatus", e.newStatus() != null ? e.newStatus().name() : null);
-        p.put("buyerEmail", "andreaccamachoj@gmail.com");
+        p.put("buyerEmail", e.buyerEmail());
         p.put("buyerId", e.buyerId() != null ? e.buyerId().toString() : null);
         p.put("totalAmount", e.totalAmount());
         p.put("note", e.note());

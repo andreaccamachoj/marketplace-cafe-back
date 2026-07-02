@@ -69,7 +69,7 @@ class SqsEventPublisherAdapterTest {
         assertTrue(body.contains("\"previousStatus\":\"confirmed\""), body);
         assertTrue(body.contains("\"newStatus\":\"preparing\""), body);
         // El adaptador fuerza el destinatario a la dirección verificada en el sandbox de SES.
-        assertTrue(body.contains("\"buyerEmail\":\"andreaccamachoj@gmail.com\""), body);
+        assertTrue(body.contains("\"buyerEmail\":\"buyer@wcm.com\""), body);
     }
 
     @Test
