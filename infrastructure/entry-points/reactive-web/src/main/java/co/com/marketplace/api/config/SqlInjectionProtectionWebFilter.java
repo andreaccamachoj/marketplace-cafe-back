@@ -59,11 +59,14 @@ public class SqlInjectionProtectionWebFilter implements WebFilter {
         DataBufferFactory bufferFactory = exchange.getResponse().bufferFactory();
 
         return DataBufferUtils.join(request.getBody())
-                .flatMap(buffer -> {
+                .map(buffer -> {
                     byte[] bytes = new byte[buffer.readableByteCount()];
                     buffer.read(bytes);
                     DataBufferUtils.release(buffer);
-
+                    return bytes;
+                })
+                .defaultIfEmpty(new byte[0])
+                .flatMap(bytes -> {
                     if (bytes.length > 0) {
                         try {
                             Object parsed = objectMapper.readValue(bytes, Object.class);
@@ -80,8 +83,7 @@ public class SqlInjectionProtectionWebFilter implements WebFilter {
 
                     ServerHttpRequest decorated = decorate(request, bytes, bufferFactory);
                     return chain.filter(exchange.mutate().request(decorated).build());
-                })
-                .switchIfEmpty(Mono.defer(() -> chain.filter(exchange)));
+                });
     }
 
     private boolean shouldInspectBody(ServerHttpRequest request) {
