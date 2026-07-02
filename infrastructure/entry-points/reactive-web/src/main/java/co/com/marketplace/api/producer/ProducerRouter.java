@@ -7,6 +7,7 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
+import static org.springframework.web.reactive.function.server.RequestPredicates.contentType;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 
 @Configuration
@@ -19,7 +20,7 @@ public class ProducerRouter {
                 .POST("/api/producer/products",                             accept(MediaType.APPLICATION_JSON), h::createProduct)
                 .PUT("/api/producer/products/{id}",                         accept(MediaType.APPLICATION_JSON), h::updateProduct)
                 .POST("/api/producer/products/{id}/archive",                h::archiveProduct)
-                .POST("/api/producer/products/{id}/cover",                  accept(MediaType.MULTIPART_FORM_DATA), h::uploadCover)
+                .POST("/api/producer/products/{id}/cover",                  contentType(MediaType.MULTIPART_FORM_DATA), h::uploadCover)
                 .DELETE("/api/producer/products/{id}/cover",                h::deleteCover)
                 .GET("/api/producer/orders",                                h::listOrders)
                 .PATCH("/api/producer/orders/{id}/status",                  accept(MediaType.APPLICATION_JSON), h::updateOrderStatus)
