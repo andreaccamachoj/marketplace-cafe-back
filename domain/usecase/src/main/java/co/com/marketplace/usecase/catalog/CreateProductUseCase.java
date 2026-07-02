@@ -65,7 +65,8 @@ public final class CreateProductUseCase {
                                         .quantity(cmd.stock())
                                         .updatedAt(OffsetDateTime.now())
                                         .build();
-                                return inventoryGateway.save(item).thenReturn(saved);
+                                return inventoryGateway.save(item)
+                                        .thenReturn(saved.toBuilder().stock(cmd.stock()).build());
                             });
                 });
     }
