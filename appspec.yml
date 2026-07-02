@@ -3,7 +3,7 @@ os: linux
 
 # Copia el jar compilado a la EC2 y reinicia el servicio systemd del backend.
 files:
-  - source: build/libs/marketplacecafe.jar
+  - source: marketplacecafe.jar
     destination: /opt/marketplace/back
 
 hooks:

@@ -1,6 +1,7 @@
 version: 0.2
 
-# CodeBuild: compila el jar del backend Spring Boot WebFlux.
+# CodeBuild: compila el jar del backend Spring Boot WebFlux (proyecto multi-modulo).
+# El bootJar lo produce el subproyecto app-service en applications/app-service/build/libs.
 phases:
   install:
     runtime-versions:
@@ -8,12 +9,16 @@ phases:
   build:
     commands:
       - chmod +x gradlew
-      - ./gradlew bootJar -x test --no-daemon
+      - ./gradlew :app-service:bootJar -x test --no-daemon
+  post_build:
+    commands:
+      # Copiamos el jar a la raiz del artefacto con un nombre plano y conocido.
+      - cp applications/app-service/build/libs/marketplacecafe.jar marketplacecafe.jar
 
-# El artefacto que recibe CodeDeploy: el jar + appspec + scripts de ciclo de vida.
+# El artefacto que recibe CodeDeploy: el jar (plano) + appspec + scripts.
 artifacts:
   files:
-    - build/libs/marketplacecafe.jar
+    - marketplacecafe.jar
     - appspec.yml
     - scripts/**/*
   discard-paths: no
