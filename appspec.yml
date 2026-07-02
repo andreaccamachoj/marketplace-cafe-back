@@ -1,0 +1,21 @@
+version: 0.0
+os: linux
+
+# Copia el jar compilado a la EC2 y reinicia el servicio systemd del backend.
+files:
+  - source: build/libs/marketplacecafe.jar
+    destination: /opt/marketplace/back
+
+hooks:
+  ApplicationStop:
+    - location: scripts/stop_backend.sh
+      timeout: 60
+      runas: root
+  AfterInstall:
+    - location: scripts/after_install.sh
+      timeout: 120
+      runas: root
+  ApplicationStart:
+    - location: scripts/start_backend.sh
+      timeout: 120
+      runas: root

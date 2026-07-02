@@ -1,0 +1,19 @@
+version: 0.2
+
+# CodeBuild: compila el jar del backend Spring Boot WebFlux.
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+  build:
+    commands:
+      - chmod +x gradlew
+      - ./gradlew bootJar -x test --no-daemon
+
+# El artefacto que recibe CodeDeploy: el jar + appspec + scripts de ciclo de vida.
+artifacts:
+  files:
+    - build/libs/marketplacecafe.jar
+    - appspec.yml
+    - scripts/**/*
+  discard-paths: no
