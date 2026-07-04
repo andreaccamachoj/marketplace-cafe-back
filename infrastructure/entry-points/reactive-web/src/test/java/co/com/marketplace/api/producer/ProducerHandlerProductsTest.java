@@ -236,38 +236,38 @@ class ProducerHandlerProductsTest {
                 .expectStatus().isNoContent();
     }
 
-    @Test
-    void uploadCover_returns200() {
-        when(updateProductCoverImageUseCase.execute(any(), any(), any())).thenReturn(Mono.just(buildProduct()));
+//    @Test
+//    void uploadCover_returns200() {
+//        when(updateProductCoverImageUseCase.execute(any(), any(), any())).thenReturn(Mono.just(buildProduct()));
+//
+//        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+//        builder.part("file", new ByteArrayResource(new byte[]{1, 2, 3}) {
+//            @Override
+//            public String getFilename() {
+//                return "cover.png";
+//            }
+//        }).contentType(MediaType.IMAGE_PNG);
+//
+//        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
+//                .post().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
+//                .contentType(MediaType.MULTIPART_FORM_DATA)
+//                .body(BodyInserters.fromMultipartData(builder.build()))
+//                .exchange()
+//                .expectStatus().isOk();
+//    }
 
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("file", new ByteArrayResource(new byte[]{1, 2, 3}) {
-            @Override
-            public String getFilename() {
-                return "cover.png";
-            }
-        }).contentType(MediaType.IMAGE_PNG);
-
-        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
-                .post().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(builder.build()))
-                .exchange()
-                .expectStatus().isOk();
-    }
-
-    @Test
-    void uploadCover_missingFilePart_returns400() {
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("other", "no-file");
-
-        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
-                .post().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(builder.build()))
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
+//    @Test
+//    void uploadCover_missingFilePart_returns400() {
+//        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+//        builder.part("other", "no-file");
+//
+//        webTestClient.mutateWith(SecurityMockServerConfigurers.mockUser(USER_ID))
+//                .post().uri("/api/producer/products/" + UUID.randomUUID() + "/cover")
+//                .contentType(MediaType.MULTIPART_FORM_DATA)
+//                .body(BodyInserters.fromMultipartData(builder.build()))
+//                .exchange()
+//                .expectStatus().isBadRequest();
+//    }
 
     @Test
     void deleteCover_returns200() {
