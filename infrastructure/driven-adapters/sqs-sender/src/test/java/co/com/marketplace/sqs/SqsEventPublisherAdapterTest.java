@@ -68,8 +68,7 @@ class SqsEventPublisherAdapterTest {
         assertTrue(body.contains("\"orderCode\":\"WCM-2026-001\""), body);
         assertTrue(body.contains("\"previousStatus\":\"confirmed\""), body);
         assertTrue(body.contains("\"newStatus\":\"preparing\""), body);
-        // El adaptador fuerza el destinatario a la dirección verificada en el sandbox de SES.
-        assertTrue(body.contains("\"buyerEmail\":\"buyer@wcm.com\""), body);
+        assertTrue(body.contains("\"buyerEmail\":\"buyer@example.com\""), body);
     }
 
     @Test
